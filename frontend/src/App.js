@@ -58,9 +58,9 @@ const App = () => {
         resetState();
 
         if (!showStream) {
-            // Start the FastAPI server
+            // Start the video conferencing server on port 8001
             try {
-                await fetch('http://127.0.0.1:8000/start-server'); // Ensure the server is running
+                await fetch('http://127.0.0.1:8001/start-server'); // Updated to match iframe port
             } catch (error) {
                 console.error('Error starting live stream server:', error);
             }
@@ -195,7 +195,7 @@ const App = () => {
                     ) : showStream ? (
                         <div className="stream-view">
                             <iframe
-                                src="http://127.0.0.1:8000/"
+                                src="http://127.0.0.1:8001/"
                                 title="Video Conferencing"
                                 width="100%"
                                 height="500px"

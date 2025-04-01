@@ -15,9 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from sample_app.views import upload_image
+from .views import start_live_stream, upload_image
 
 urlpatterns = [
+    path("start-live-stream/", start_live_stream, name="start-live-stream"),
     path("api/upload/", upload_image, name="upload_image"),
 ]
 
