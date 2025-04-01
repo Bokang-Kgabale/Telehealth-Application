@@ -1,0 +1,116 @@
+/* Video container styles */
+.video-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: auto;
+    border: 1px solid #ccc;
+    overflow: hidden;
+}
+
+/* Remote video (background) */
+#remoteVideo {
+    width: 100%;
+    height: auto;
+}
+
+/* Local video (overlay) */
+#localVideo {
+    width: 150px;
+    height: 100px;
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    border: 2px solid white;
+    border-radius: 8px;
+    background-color: black;
+}
+
+/* Button container */
+.button-container {
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* General button styles */
+button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+/* Hover effect for all buttons */
+button:hover {
+    transform: scale(1.1);
+}
+
+/* Disabled button styles */
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Open Camera button (default blue) */
+#openMedia {
+    background-color: #007bff;
+}
+
+#openMedia:hover {
+    background-color: #0056b3;
+}
+
+/* Start Call button (green) */
+#startCall {
+    background-color: #28a745;
+}
+
+#startCall:hover {
+    background-color: #218838;
+}
+
+/* Join Call button (default blue) */
+#joinCall {
+    background-color: #007bff;
+}
+
+#joinCall:hover {
+    background-color: #0056b3;
+}
+
+/* Hang Up button (red) */
+#hangUp {
+    background-color: #dc3545;
+}
+
+#hangUp:hover {
+    background-color: #c82333;
+}
+
+/* Room info */
+#currentRoom {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+/* General styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+    margin-top: 20px;
+}

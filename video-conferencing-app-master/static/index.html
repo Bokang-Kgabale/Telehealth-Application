@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Video Call</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/styles.css">
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <h1 style="text-align: center;">WebRTC Video Call</h1>
+
+    <!-- Video Container -->
+    <div class="video-container">
+        <!-- Remote Video (Background) -->
+        <video id="remoteVideo" autoplay playsinline>
+            Your browser does not support the video tag.
+        </video>
+        <!-- Local Video (Overlay) -->
+        <video id="localVideo" autoplay playsinline>
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <!-- Buttons -->
+    <div class="button-container">
+        <button id="openMedia" title="Open Camera">
+            <i class="fas fa-video"></i>
+        </button>
+        <button id="startCall" title="Start Call" disabled>
+            <i class="fas fa-phone"></i>
+        </button>
+        <button id="joinCall" title="Join Call" disabled>
+            <i class="fas fa-user-plus"></i>
+        </button>
+        <button id="hangUp" title="Hang Up" disabled>
+            <i class="fas fa-phone-slash"></i>
+        </button>
+    </div>
+
+    <!-- Room Info -->
+    <div>
+        <p id="currentRoom"></p>
+    </div>
+
+    <!-- Main Script -->
+    <script src="/static/script.js"></script>
+</body>
+</html>
