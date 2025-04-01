@@ -8,7 +8,7 @@ from PIL import Image
 import re
 
 # Set Google Cloud credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "vision-key.json"  # Update path
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "f:/Telehealth/backend/config/vision-key.json"  # Update path
 
 client = vision.ImageAnnotatorClient()
 

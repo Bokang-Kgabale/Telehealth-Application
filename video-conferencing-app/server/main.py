@@ -1,4 +1,9 @@
 import sys
+import os
+
+# Set the path to the vision-key.json file
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("config/vision-key.json")
+
 print("Python Path:", sys.path)
 
 from fastapi import FastAPI

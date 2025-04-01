@@ -3,6 +3,9 @@
 import os
 import sys
 
+# Set the path to the vision-key.json file
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("config/vision-key.json")
+
 
 def main():
     """Run administrative tasks."""

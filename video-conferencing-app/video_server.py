@@ -12,6 +12,9 @@ static_dir = os.path.abspath("static")
 # Mount the static folder for serving HTML, CSS, and JS files
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Serve the config directory
+app.mount("/config", StaticFiles(directory="config"), name="config")
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
     try:

@@ -1,18 +1,26 @@
 // Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyAf2iPhHlgn6QxagOJ8VAz6UwEk4yUMLnU",
-    authDomain: "fir-rtc-521a2.firebaseapp.com",
-    databaseURL: "https://fir-rtc-521a2-default-rtdb.firebaseio.com",
-    projectId: "fir-rtc-521a2",
-    storageBucket: "fir-rtc-521a2.firebasestorage.app",
-    messagingSenderId: "599476304901",
-    appId: "1:599476304901:web:722c59b1022b85a249b06c",
-    measurementId: "G-7VJ91V1JRX"
-};
+async function loadFirebaseConfig() {
+    try {
+        const response = await fetch('/config/firebaseConfig.json'); // Adjust the path if necessary
+        const firebaseConfig = await response.json();
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        console.log("Firebase initialized successfully.");
+        return db;
+    } catch (error) {
+        console.error("Error loading Firebase configuration:", error);
+        alert("Failed to load Firebase configuration.");
+    }
+}
+
+// Call the function to load Firebase config and initialize
+let db;
+loadFirebaseConfig().then(database => {
+    db = database;
+});
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
