@@ -131,16 +131,41 @@ const App = () => {
             } else if (type === 'weight') {
                 setWeightData(data);
             }
+
+            // Send captured data to server
+            sendCapturedData('roomId', type, data.formatted_value, data.raw_text);
         } catch (error) {
             console.error('Error uploading image:', error);
         }
     };
 
+    async function sendCapturedData(roomId, type, formattedValue, rawText) {
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/save-data/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomId: roomId,
+                    type: type,
+                    formatted_value: formattedValue,
+                    raw_text: rawText,
+                }),
+            });
+
+            const data = await response.json();
+            console.log('Data saved:', data);
+        } catch (error) {
+            console.error('Error sending captured data:', error);
+        }
+    }
+
     return (
         <div className="app-container">
             {/* Header */}
             <header className="app-header">
-                <h1>Medical Data Capture System</h1>
+                <h1>Telehealth Medical Data Capture System</h1>
                 {mode && <h2 className={`mode-indicator ${mode}`}>Mode: {mode.charAt(0).toUpperCase() + mode.slice(1)}</h2>}
             </header>
 

@@ -1,6 +1,7 @@
 import subprocess
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
@@ -15,6 +16,9 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "f:/Telehealth/backend/config/vis
 
 # Initialize Google Vision client
 client = vision.ImageAnnotatorClient()
+
+# In-memory storage for simplicity (use a database in production)
+room_data = {}
 
 def start_live_stream(request):
     try:
@@ -81,3 +85,46 @@ def extract_numbers(text, capture_type):
             return f"{value}°C"
 
     return "No valid number found"
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_captured_data(request):
+    """
+    Save captured data (temperature or weight) for a specific roomId.
+    """
+    try:
+        body = json.loads(request.body)
+        room_id = body.get("roomId")
+        capture_type = body.get("type")  # 'temperature' or 'weight'
+        formatted_value = body.get("formatted_value")
+        raw_text = body.get("raw_text")
+
+        if not room_id or not capture_type or not formatted_value or not raw_text:
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        # Save data to in-memory storage
+        if room_id not in room_data:
+            room_data[room_id] = {}
+        room_data[room_id][capture_type] = {
+            "formatted_value": formatted_value,
+            "raw_text": raw_text
+        }
+
+        return JsonResponse({"message": "Data saved successfully"})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_captured_data(request, room_id):
+    """
+    Retrieve captured data for a specific roomId.
+    """
+    try:
+        data = room_data.get(room_id)
+        if not data:
+            return JsonResponse({"error": "No data found for the given roomId"}, status=404)
+
+        return JsonResponse({"roomId": room_id, "data": data})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

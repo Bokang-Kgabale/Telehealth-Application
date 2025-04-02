@@ -15,11 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from .views import start_live_stream, upload_image
+from .views import start_live_stream, upload_image, save_captured_data, get_captured_data
 
 urlpatterns = [
     path("start-live-stream/", start_live_stream, name="start-live-stream"),
     path("api/upload/", upload_image, name="upload_image"),
+    path('api/save-data/', save_captured_data, name='save_captured_data'),
+    path('api/get-data/<str:room_id>/', get_captured_data, name='get_captured_data'),
 ]
 
 
