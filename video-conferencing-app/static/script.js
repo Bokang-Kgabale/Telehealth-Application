@@ -235,3 +235,87 @@ document.getElementById("joinCall").onclick = async () => {
     }
 };
 document.getElementById("hangUp").onclick = hangUp;
+
+document.addEventListener("DOMContentLoaded", () => {
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
+    const openMediaButton = document.getElementById("openMedia");
+    const muteAudioButton = document.getElementById("muteAudio");
+    const hangUpButton = document.getElementById("hangUp");
+
+    let localStream;
+    let isVideoEnabled = true;
+    let isAudioEnabled = true;
+
+    // Open Media (Camera and Microphone)
+    openMediaButton.onclick = async () => {
+        if (!localStream) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                console.log("Media devices accessed successfully.");
+                openMediaButton.innerHTML = '<i class="fas fa-video-slash"></i>'; // Change icon to indicate video can be turned off
+            } catch (error) {
+                console.error("Error accessing media devices:", error);
+                alert("Unable to access camera and microphone. Please check your permissions.");
+            }
+        } else {
+            // Toggle video on/off
+            const videoTrack = localStream.getVideoTracks()[0];
+            isVideoEnabled = !isVideoEnabled;
+            videoTrack.enabled = isVideoEnabled;
+            openMediaButton.innerHTML = isVideoEnabled
+                ? '<i class="fas fa-video"></i>' // Video is on
+                : '<i class="fas fa-video-slash"></i>'; // Video is off
+            console.log("Video", isVideoEnabled ? "enabled" : "disabled");
+        }
+    };
+
+    // Automatically enable PiP when the user navigates away
+    document.addEventListener("visibilitychange", async () => {
+        if (document.hidden && localVideo.readyState >= 2) {
+            try {
+                if (!document.pictureInPictureElement) {
+                    await localVideo.requestPictureInPicture();
+                    console.log("Automatically entered Picture-in-Picture mode.");
+                }
+            } catch (error) {
+                console.error("Error enabling PiP mode:", error);
+            }
+        }
+    });
+
+    // Mute/Unmute Audio
+    muteAudioButton.onclick = () => {
+        if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            isAudioEnabled = !isAudioEnabled;
+            audioTrack.enabled = isAudioEnabled;
+            muteAudioButton.innerHTML = isAudioEnabled
+                ? '<i class="fas fa-microphone"></i>'
+                : '<i class="fas fa-microphone-slash"></i>';
+            console.log("Audio", isAudioEnabled ? "unmuted" : "muted");
+        }
+    };
+
+    // Hang Up
+    hangUpButton.onclick = () => {
+        if (localStream) {
+            localStream.getTracks().forEach((track) => track.stop());
+            localVideo.srcObject = null;
+            localStream = null;
+            isVideoEnabled = true;
+            isAudioEnabled = true;
+            openMediaButton.innerHTML = '<i class="fas fa-video"></i>'; // Reset icon
+            muteAudioButton.innerHTML = '<i class="fas fa-microphone"></i>'; // Reset icon
+            console.log("Call ended and media tracks stopped.");
+        }
+
+        // Exit PiP mode if active
+        if (document.pictureInPictureElement) {
+            document.exitPictureInPicture().then(() => {
+                console.log("Exited Picture-in-Picture mode.");
+            });
+        }
+    };
+});

@@ -32,6 +32,32 @@
     margin-top: 20px;
 }
 
+.button-container button {
+    background-color: #007bff; /* Blue background */
+    color: #fff; /* White text */
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 20px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 5px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.button-container button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+    transform: scale(1.1); /* Slight zoom effect */
+}
+
+.button-container button:disabled {
+    background-color: #cccccc; /* Gray background when disabled */
+    cursor: not-allowed;
+}
+
 /* General button styles */
 button {
     width: 60px;
@@ -92,6 +118,27 @@ button:disabled {
 
 #hangUp:hover {
     background-color: #c82333;
+}
+
+/* PiP Button (yellow) */
+#pipButton {
+    background-color: #ffc107; /* Yellow background */
+    color: #333; /* Dark text color */
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#pipButton:hover {
+    background-color: #e0a800; /* Darker yellow on hover */
+    transform: scale(1.1); /* Slight zoom effect */
 }
 
 /* Room info */
