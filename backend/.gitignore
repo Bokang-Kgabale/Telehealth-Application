@@ -1,1 +1,8 @@
 config/vision-key.json
+config/fir-rtc-521a2-firebase-adminsdk-fbsvc-5554e5bdfc.json
+# Node modules
+node_modules/
+
+# Other ignores
+*.pyc
+__pycache__/
