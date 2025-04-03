@@ -3,12 +3,16 @@ import cv2
 
 app = Flask(__name__)
 
+# Initialize camera
 camera = cv2.VideoCapture(0)  # 0 is the default webcam
+if not camera.isOpened():
+    print("Error: Camera could not be opened.")
 
 def generate_frames():
     while True:
         success, frame = camera.read()
         if not success:
+            print("Error: Could not read frame from camera.")
             break
         else:
             ret, buffer = cv2.imencode('.jpg', frame)

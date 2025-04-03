@@ -3,8 +3,8 @@ import './App.css';
 
 const App = () => {
     const [showStream, setShowStream] = useState(false);
-    const [roomId, setRoomId] = useState(''); // Room ID from the video call app
     const [capturedData, setCapturedData] = useState(null); // State to store captured data
+    const [loading, setLoading] = useState(true); // State to track loading
 
     const toggleLiveStream = async () => {
         setShowStream(!showStream);
@@ -19,54 +19,47 @@ const App = () => {
         }
     };
 
-    const fetchCapturedData = async (roomId) => {
+    const fetchCapturedData = async () => {
+        setLoading(true); // Set loading to true when fetching starts
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/get-data/${roomId}/`);
-            const data = await response.json();
+            const temperatureResponse = await fetch('https://fir-rtc-521a2-default-rtdb.firebaseio.com/data/temperature.json');
+            const weightResponse = await fetch('https://fir-rtc-521a2-default-rtdb.firebaseio.com/data/weight.json');
 
-            if (data.error) {
-                console.error('Error fetching data:', data.error);
+            const temperatureData = await temperatureResponse.json();
+            const weightData = await weightResponse.json();
+
+            if (!temperatureData && !weightData) {
+                console.error('No data found');
                 return;
             }
 
-            console.log('Captured data:', data);
-            setCapturedData(data.data); // Update the state with the fetched data
+            console.log('Temperature data:', temperatureData);
+            console.log('Weight data:', weightData);
+
+            // Combine the data into a single object
+            const combinedData = {
+                temperature: Object.values(temperatureData || {}),
+                weight: Object.values(weightData || {}),
+            };
+
+            setCapturedData(combinedData); // Update the state with the combined data
         } catch (error) {
             console.error('Error fetching captured data:', error);
+        } finally {
+            setLoading(false); // Set loading to false when fetching is done
         }
     };
 
-    // Listen for the `roomId` from the video call app
+    // Fetch captured data when the component mounts
     useEffect(() => {
-        const detectRoomId = () => {
-            const roomElement = document.getElementById('currentRoom');
-            if (roomElement && roomElement.innerText.includes('Room ID:')) {
-                const detectedRoomId = roomElement.innerText.split('Room ID: ')[1];
-                if (detectedRoomId && detectedRoomId !== roomId) {
-                    setRoomId(detectedRoomId); // Update the roomId state
-                }
-            }
-        };
-
-        // Poll for changes in the `roomId` every second
-        const interval = setInterval(detectRoomId, 1000);
-
-        return () => clearInterval(interval); // Cleanup the interval on component unmount
-    }, [roomId]);
-
-    // Fetch captured data whenever the `roomId` changes
-    useEffect(() => {
-        if (roomId) {
-            fetchCapturedData(roomId);
-        }
-    }, [roomId]);
+        fetchCapturedData();
+    }, []);
 
     return (
         <div className="app-container">
             {/* Header */}
             <header className="app-header">
                 <h1>Telehealth Doctor Dashboard</h1>
-                <p>Room ID: {roomId || 'Not detected'}</p>
             </header>
 
             <div className="main-content">
@@ -109,22 +102,26 @@ const App = () => {
                 <div className="results-panel">
                     <h3>Patient Vitals</h3>
                     <div className="results-content">
-                        {capturedData ? (
+                        {loading ? (
+                            <div className="loading-indicator">
+                                <div className="spinner"></div>
+                            </div>
+                        ) : capturedData ? (
                             <div className="data-cards">
-                                {capturedData.temperature && (
-                                    <div className="data-card temperature-card">
+                                {capturedData.temperature.map((temp, index) => (
+                                    <div key={index} className="data-card temperature-card spaced-card">
                                         <h4>Temperature Data</h4>
-                                        <div className="data-value">{capturedData.temperature.formatted_value}</div>
-                                        <div className="data-raw">Raw: {capturedData.temperature.raw_text}</div>
+                                        <div className="data-value">{temp.formatted_value}</div>
+                                        <div className="data-raw">Raw: {temp.raw_text}</div>
                                     </div>
-                                )}
-                                {capturedData.weight && (
-                                    <div className="data-card weight-card">
+                                ))}
+                                {capturedData.weight.map((wt, index) => (
+                                    <div key={index} className="data-card weight-card spaced-card">
                                         <h4>Weight Data</h4>
-                                        <div className="data-value">{capturedData.weight.formatted_value}</div>
-                                        <div className="data-raw">Raw: {capturedData.weight.raw_text}</div>
+                                        <div className="data-value">{wt.formatted_value}</div>
+                                        <div className="data-raw">Raw: {wt.raw_text}</div>
                                     </div>
-                                )}
+                                ))}
                             </div>
                         ) : (
                             <div className="no-data">

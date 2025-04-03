@@ -1,44 +1,33 @@
+import os
+import json
+import io
+import re
 import subprocess
+import firebase_admin
+from firebase_admin import credentials, db
+from google.cloud import vision
+from PIL import Image
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
-import os
-import io
-import json
-from google.cloud import vision
-from PIL import Image
-import re
 
-# Set Google Cloud credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "f:/Telehealth/backend/config/vision-key.json"  # Update path to your credentials file
+# Set up Firebase credentials
+base_dir = os.path.dirname(os.path.abspath(__file__))
+json_path = os.path.join(base_dir, "..", "config", "fir-rtc-521a2-firebase-adminsdk-fbsvc-5554e5bdfc.json")
+cred = credentials.Certificate(json_path)
+# Initialize Firebase Admin SDK
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://fir-rtc-521a2-default-rtdb.firebaseio.com/'
+})
 
-# Initialize Google Vision client
+# Set up Google Cloud Vision credentials
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
+    os.path.dirname(__file__), '..', 'config', 'vision-key.json'
+)
 client = vision.ImageAnnotatorClient()
 
-# In-memory storage for simplicity (use a database in production)
-room_data = {}
-
-def start_live_stream(request):
-    try:
-        # Set the PYTHONPATH to the parent directory of the server folder
-        env = os.environ.copy()
-        env["PYTHONPATH"] = "c:/Users/User/Downloads/Telehealt-OCR/video-conferencing-app"
-
-        # Run the FastAPI server
-        subprocess.Popen(
-            ["python", "c:/Users/User/Downloads/Telehealt-OCR/video-conferencing-app/server/main.py"],
-            env=env
-        )
-        return JsonResponse({"message": "Live stream started successfully"})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-def start_server(request):
-    return JsonResponse({"message": "Server started successfully"})
-
 @csrf_exempt
+@require_http_methods(["POST"])
 def upload_image(request):
     if request.method == 'POST':
         image_file = request.FILES.get('image')
@@ -62,6 +51,9 @@ def upload_image(request):
             raw_text = texts[0].description if texts else "No text found"
             extracted_value = extract_numbers(raw_text, capture_type)
 
+            # Save to Firebase
+            save_to_firebase(capture_type, raw_text, extracted_value)
+
             return JsonResponse({
                 "capture_type": capture_type,
                 "raw_text": raw_text,
@@ -69,62 +61,69 @@ def upload_image(request):
             })
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 def extract_numbers(text, capture_type):
     """Extracts numerical values and appends 'Kg' or '°C' based on type."""
     number_pattern = re.compile(r"\d+\.\d+|\d+")
     numbers = number_pattern.findall(text)
-
     if numbers:
         value = float(numbers[0])  # Take the first detected number
         if capture_type == 'weight':
             return f"{value} Kg"
         elif capture_type == 'temperature':
             return f"{value}°C"
-
     return "No valid number found"
 
+def save_to_firebase(capture_type, raw_text, formatted_value):
+    """Saves extracted OCR data to Firebase Realtime Database."""
+    ref = db.reference(f'/data/{capture_type}')
+    ref.push({
+        "formatted_value": formatted_value,
+        "raw_text": raw_text
+    })
+
 @csrf_exempt
-@require_http_methods(["POST"])
-def save_captured_data(request):
-    """
-    Save captured data (temperature or weight) for a specific roomId.
-    """
+@require_http_methods(["GET"])
+def start_live_stream(request):
     try:
-        body = json.loads(request.body)
-        room_id = body.get("roomId")
-        capture_type = body.get("type")  # 'temperature' or 'weight'
-        formatted_value = body.get("formatted_value")
-        raw_text = body.get("raw_text")
+        # Set the PYTHONPATH to the parent directory of the server folder
+        env = os.environ.copy()
+        env["PYTHONPATH"] = "c:/Users/User/Downloads/Telehealt-OCR/video-conferencing-app"
 
-        if not room_id or not capture_type or not formatted_value or not raw_text:
-            return JsonResponse({"error": "Missing required fields"}, status=400)
+        # Run the FastAPI server
+        subprocess.Popen(
+            ["python", "c:/Users/User/Downloads/Telehealt-OCR/video-conferencing-app/server/main.py"],
+            env=env
+        )
 
-        # Save data to in-memory storage
-        if room_id not in room_data:
-            room_data[room_id] = {}
-        room_data[room_id][capture_type] = {
-            "formatted_value": formatted_value,
-            "raw_text": raw_text
-        }
+        # Optionally, you can add a delay here to ensure the server starts before accessing the endpoint
+        import time
+        time.sleep(2)  # Wait for 2 seconds
 
-        return JsonResponse({"message": "Data saved successfully"})
+        # Now call the /start-server endpoint
+        import requests
+        response = requests.get("http://127.0.0.1:8001/start-server")
+        return JsonResponse(response.json())
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @require_http_methods(["GET"])
-def get_captured_data(request, room_id):
-    """
-    Retrieve captured data for a specific roomId.
-    """
+def get_captured_data(request):
+    """Retrieve all captured data from Firebase."""
     try:
-        data = room_data.get(room_id)
+        ref = db.reference(f'/data')
+        data = ref.get()
         if not data:
-            return JsonResponse({"error": "No data found for the given roomId"}, status=404)
+            return JsonResponse({"error": "No data found"}, status=404)
 
-        return JsonResponse({"roomId": room_id, "data": data})
+        # Format the data for the doctor's frontend
+        formatted_data = {
+            "temperature": data.get("temperature"),
+            "weight": data.get("weight"),
+            # Add any other relevant data here
+        }
+        
+        return JsonResponse({"data": formatted_data})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

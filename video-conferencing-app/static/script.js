@@ -271,20 +271,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // Automatically enable PiP when the user navigates away
-    document.addEventListener("visibilitychange", async () => {
-        if (document.hidden && localVideo.readyState >= 2) {
-            try {
-                if (!document.pictureInPictureElement) {
-                    await localVideo.requestPictureInPicture();
-                    console.log("Automatically entered Picture-in-Picture mode.");
-                }
-            } catch (error) {
-                console.error("Error enabling PiP mode:", error);
-            }
-        }
-    });
-
     // Mute/Unmute Audio
     muteAudioButton.onclick = () => {
         if (localStream) {
@@ -309,13 +295,6 @@ document.addEventListener("DOMContentLoaded", () => {
             openMediaButton.innerHTML = '<i class="fas fa-video"></i>'; // Reset icon
             muteAudioButton.innerHTML = '<i class="fas fa-microphone"></i>'; // Reset icon
             console.log("Call ended and media tracks stopped.");
-        }
-
-        // Exit PiP mode if active
-        if (document.pictureInPictureElement) {
-            document.exitPictureInPicture().then(() => {
-                console.log("Exited Picture-in-Picture mode.");
-            });
         }
     };
 });
