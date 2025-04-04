@@ -431,3 +431,18 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+.results-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-height: 70vh; /* Adjust the height as needed */
+  overflow-y: auto;
+}
+
+.data-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 60vh; /* Optional: if you want this section to have its own scroll */
+  overflow-y: auto;
+}

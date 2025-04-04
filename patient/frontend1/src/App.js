@@ -149,7 +149,7 @@ const App = () => {
                     <h3>Actions</h3>
                     <div className="button-group">
                         <button onClick={startSession} className="button start-session-btn">
-                            <i className="icon start-session-icon"></i>
+                            <i className="icon stream-icon"></i>
                             Capture Vitals
                         </button>                        
                         <button onClick={exitCamera} className="button exit-btn">

@@ -122,7 +122,7 @@ body {
 
 /* Specific button styles */
 .start-session-btn {
-  background-color: #1abc9c;
+  background-color: #2ecc71;
 }
 
 .start-session-btn:hover {
@@ -299,6 +299,21 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+.results-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-height: 70vh; /* Adjust the height as needed */
+  overflow-y: auto;
+}
+
+.data-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 60vh; /* Optional: if you want this section to have its own scroll */
+  overflow-y: auto;
 }
 
 /* Captured images container */
