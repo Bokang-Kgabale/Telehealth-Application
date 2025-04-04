@@ -1,10 +1,28 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Webcam from "react-webcam";
 
 const CameraCapture = () => {
     const webcamRef = useRef(null);
     const [image, setImage] = useState(null);
     const [captureType, setCaptureType] = useState(null);
+    const [cameraDeviceId, setCameraDeviceId] = useState(null);
+
+    // Function to find an external camera if available
+    useEffect(() => {
+        navigator.mediaDevices.enumerateDevices()
+            .then((devices) => {
+                const videoDevices = devices.filter(device => device.kind === "videoinput");
+                
+                if (videoDevices.length > 1) {
+                    // If multiple cameras exist, prioritize the external one
+                    setCameraDeviceId(videoDevices[1].deviceId);
+                } else {
+                    // Otherwise, use the built-in camera
+                    setCameraDeviceId(videoDevices[0]?.deviceId || null);
+                }
+            })
+            .catch(error => console.error("Error detecting cameras:", error));
+    }, []);
 
     // Function to capture image
     const captureImage = (type) => {
@@ -36,13 +54,18 @@ const CameraCapture = () => {
         <div style={{ textAlign: "center", padding: "20px" }}>
             <h2>Capture Data</h2>
             
-            <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                width={400}
-                height={300}
-            />
+            {cameraDeviceId ? (
+                <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    width={400}
+                    height={300}
+                    videoConstraints={{ deviceId: cameraDeviceId }}
+                />
+            ) : (
+                <p>No camera detected</p>
+            )}
 
             <div style={{ marginTop: "20px" }}>
                 <button onClick={() => captureImage("temperature")} style={{ margin: "10px", padding: "10px" }}>

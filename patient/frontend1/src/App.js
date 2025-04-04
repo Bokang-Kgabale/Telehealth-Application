@@ -6,28 +6,28 @@ const App = () => {
     const webcamRef = useRef(null);
     const [showCamera, setShowCamera] = useState(false);
     const [showStream, setShowStream] = useState(false);
-    const [capturedImage, setCapturedImage] = useState(null);
+    const [capturedImages, setCapturedImages] = useState({
+        temperature: null,
+        weight: null
+    });
     const [mode, setMode] = useState(null);
-    const [temperatureDeviceId, setTemperatureDeviceId] = useState('');
-    const [weightDeviceId, setWeightDeviceId] = useState('');
+    const [cameraDeviceId, setCameraDeviceId] = useState('');
     const [timer, setTimer] = useState(5);
     const [cameraReady, setCameraReady] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
+    const [activeCapture, setActiveCapture] = useState(null);
 
-    // Store extracted data separately for temperature & weight
-    const [temperatureData, setTemperatureData] = useState(null);
-    const [weightData, setWeightData] = useState(null);
+    const [capturedData, setCapturedData] = useState({
+        temperature: null,
+        weight: null
+    });
 
     const refreshDevices = useCallback(() => {
         navigator.mediaDevices.enumerateDevices()
             .then(devices => {
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
                 if (videoDevices.length > 0) {
-                    setTemperatureDeviceId(videoDevices[0].deviceId);
-                }
-                if (videoDevices.length > 1) {
-                    setWeightDeviceId(videoDevices[1].deviceId);
+                    setCameraDeviceId(videoDevices[0].deviceId);
                 }
             })
             .catch(error => console.error('Error enumerating devices:', error));
@@ -37,15 +37,8 @@ const App = () => {
         refreshDevices();
     }, [refreshDevices]);
 
-    const openTemperatureCamera = () => {
-        setMode('temperature');
-        setShowCamera(true);
-        setShowStream(false);
-        resetState();
-    };
-
-    const openWeightCamera = () => {
-        setMode('weight');
+    const openCaptureWindow = () => {
+        setMode('capture');
         setShowCamera(true);
         setShowStream(false);
         resetState();
@@ -58,9 +51,8 @@ const App = () => {
         resetState();
 
         if (!showStream) {
-            // Start the video conferencing server on port 8001
             try {
-                await fetch('http://127.0.0.1:8001/start-server'); // Updated to match iframe port
+                await fetch('http://127.0.0.1:8001/start-server');
             } catch (error) {
                 console.error('Error starting live stream server:', error);
             }
@@ -68,43 +60,48 @@ const App = () => {
     };
 
     const exitCamera = () => {
+        // Only reset the camera-related states, not the captured data
         setShowCamera(false);
         setShowStream(false);
         setMode(null);
-        resetState();
+        setTimer(5); // Reset timer, if necessary
+        setCameraReady(false);
+        setIsCapturing(false);
+        setActiveCapture(null);
     };
 
     const resetState = () => {
-        setCapturedImage(null);
         setTimer(5);
         setCameraReady(false);
         setIsCapturing(false);
+        setActiveCapture(null);
     };
 
-    const captureImage = useCallback(() => {
-        if (webcamRef.current) {
+    const captureImage = useCallback((type) => {
+        if (webcamRef.current && !isCapturing) {
+            setIsCapturing(true);
+            setActiveCapture(type);
             const imageSrc = webcamRef.current.getScreenshot();
-            setCapturedImage(imageSrc);
-            setShowCamera(false);
-            setIsCapturing(false);
-            uploadImage(imageSrc, mode);
+            setCapturedImages(prev => ({ ...prev, [type]: imageSrc }));
+            uploadImage(imageSrc, type);
         }
-    }, [mode]);
+    }, [isCapturing]);
 
     useEffect(() => {
-        if (showCamera && timer > 0 && cameraReady && !isCapturing) {
+        if (showCamera && timer > 0 && cameraReady && activeCapture && !isCapturing) {
             const timerId = setInterval(() => {
-                setTimer(prev => prev - 1);
-                if (timer === 1) {
-                    setIsCapturing(true);
-                    captureImage();
-                    clearInterval(timerId);
-                }
+                setTimer(prev => prev - 1); // Decrement the timer every second
             }, 1000);
-
-            return () => clearInterval(timerId);
+    
+            // When the timer reaches 0, capture the image
+            if (timer === 1) {
+                captureImage(activeCapture);
+                clearInterval(timerId);
+            }
+    
+            return () => clearInterval(timerId); // Clear interval when component unmounts or dependencies change
         }
-    }, [showCamera, timer, captureImage, cameraReady, isCapturing]);
+    }, [showCamera, timer, activeCapture, cameraReady, isCapturing, captureImage]);
 
     const handleOnReady = () => {
         setCameraReady(true);
@@ -123,44 +120,38 @@ const App = () => {
             });
 
             const data = await response.json();
-            console.log(`${type} Capture Response:`, data);
-
-            // Store extracted data separately
-            if (type === 'temperature') {
-                setTemperatureData(data);
-            } else if (type === 'weight') {
-                setWeightData(data);
-            }
+            setCapturedData(prev => ({ ...prev, [type]: data }));
+            setIsCapturing(false);
         } catch (error) {
             console.error('Error uploading image:', error);
+            setIsCapturing(false);
         }
+    };
+
+    const startSession = () => {
+        setMode('session');
+        setShowCamera(true);
+        setShowStream(true);
+        resetState();
+        toggleLiveStream();
+        openCaptureWindow();
     };
 
     return (
         <div className="app-container">
-            {/* Header */}
             <header className="app-header">
-                <h1>Telehealth Medical Data Capture System</h1>
+                <h1>Medical Data Capture System</h1>
                 {mode && <h2 className={`mode-indicator ${mode}`}>Mode: {mode.charAt(0).toUpperCase() + mode.slice(1)}</h2>}
             </header>
 
             <div className="main-content">
-                {/* Sidebar buttons */}
                 <div className="sidebar">
                     <h3>Actions</h3>
                     <div className="button-group">
-                        <button onClick={openTemperatureCamera} className="button temperature-btn">
-                            <i className="icon temperature-icon"></i>
-                            Capture Temperature
-                        </button>
-                        <button onClick={openWeightCamera} className="button weight-btn">
-                            <i className="icon weight-icon"></i>
-                            Capture Weight
-                        </button>
-                        <button onClick={toggleLiveStream} className={`button stream-btn ${showStream ? 'active' : ''}`}>
-                            <i className="icon stream-icon"></i>
-                            {showStream ? 'Stop Live Stream' : 'Start Live Stream'}
-                        </button>
+                        <button onClick={startSession} className="button start-session-btn">
+                            <i className="icon start-session-icon"></i>
+                            Capture Vitals
+                        </button>                        
                         <button onClick={exitCamera} className="button exit-btn">
                             <i className="icon exit-icon"></i>
                             Exit
@@ -168,90 +159,110 @@ const App = () => {
                     </div>
                 </div>
 
-                {/* Main Camera/Live Stream Section */}
                 <div className="camera-container">
-                    {showCamera ? (
-                        <div className="camera-view">
-                            <div className="timer-display">
-                                <span className="timer-circle">{timer}</span>
-                                <p>Automatically capturing in {timer} seconds</p>
-                            </div>
-                            <Webcam
-                                ref={webcamRef}
-                                screenshotFormat='image/jpeg'
-                                className="webcam"
-                                videoConstraints={{
-                                    deviceId: mode === 'temperature' ? temperatureDeviceId : weightDeviceId,
-                                    facingMode: "user",
+                    <div className="camera-view">
+                        <div className="capture-controls">
+                            <button 
+                                onClick={() => {
+                                    setActiveCapture('temperature'); // Set the capture type
+                                    setTimer(5); // Reset the timer to 5 seconds
                                 }}
-                                onUserMedia={handleOnReady}
-                            />
-                            <div className="camera-controls">
-                                <button onClick={exitCamera} className="button exit-btn">
-                                    Cancel
-                                </button>
-                            </div>
+                                className={`capture-type-btn ${activeCapture === 'temperature' ? 'active' : ''}`}
+                            >
+                                Capture Temperature
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setActiveCapture('weight'); // Set the capture type
+                                    setTimer(5); // Reset the timer to 5 seconds
+                                }}
+                                className={`capture-type-btn ${activeCapture === 'weight' ? 'active' : ''}`}
+                            >
+                                Capture Weight
+                            </button>
                         </div>
-                    ) : showStream ? (
-                        <div className="stream-view">
-                            <iframe
-                                src="http://127.0.0.1:8001/"
-                                title="Video Conferencing"
-                                width="100%"
-                                height="500px"
-                                style={{ border: 'none' }}
-                                allow="camera; microphone"
-                            ></iframe>
-                        </div>
-                    ) : (
-                        <div className="empty-state">
-                            <div className="empty-content">
-                                <i className="icon camera-icon large"></i>
-                                <h2>Select an option to start</h2>
-                                <p>Use the buttons on the left to capture temperature, weight, or start a live stream</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
 
-                {/* Captured Image & Data Display */}
-                <div className="results-panel">
-                    <h3>Captured Data</h3>
-                    
-                    <div className="results-content">
-                        {capturedImage && (
-                            <div className="captured-image-container">
-                                <h4>Last Captured Image:</h4>
-                                <img src={capturedImage} alt='Captured' className="captured-image" />
-                                <p className="caption">Captured {mode} data</p>
-                            </div>
-                        )}
-
-                        {/* Persistent Extracted Data Display */}
-                        {(temperatureData || weightData) && (
-                            <div className="extracted-data">
-                                {temperatureData && (
-                                    <div className="data-card temperature-card">
-                                        <h4>Temperature Data</h4>
-                                        <div className="data-value">{temperatureData.formatted_value}</div>
-                                        <div className="data-raw">Raw: {temperatureData.raw_text}</div>
+                        {/* Show webcam only if activeCapture is set */}
+                        {activeCapture && (
+                            <div className="compact-camera-container">
+                                {activeCapture && (
+                                    <div className="timer-display">
+                                        <span className="timer-circle">{timer}</span>
+                                        <p>Capturing {activeCapture} in {timer} seconds</p>
                                     </div>
                                 )}
 
-                                {weightData && (
-                                    <div className="data-card weight-card">
-                                        <h4>Weight Data</h4>
-                                        <div className="data-value">{weightData.formatted_value}</div>
-                                        <div className="data-raw">Raw: {weightData.raw_text}</div>
+                                <Webcam
+                                    ref={webcamRef}
+                                    screenshotFormat="image/jpeg"
+                                    className="compact-webcam"
+                                    videoConstraints={{
+                                        deviceId: cameraDeviceId,
+                                        facingMode: 'user',
+                                    }}
+                                    onUserMedia={handleOnReady}
+                                />
+                            </div>
+                        )}
+
+                        <div className="camera-controls">
+                            <button onClick={exitCamera} className="button exit-btn">
+                                Close Capture
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="stream-view">
+                        <iframe
+                            src="http://127.0.0.1:8001/"
+                            title="Video Conferencing"
+                            width="100%"
+                            height="500px"
+                            style={{ border: 'none' }}
+                            allow="camera; microphone"
+                        ></iframe>
+                    </div>
+
+                    <div className="empty-state">                        
+                    </div>
+                </div>
+
+                <div className="results-panel">
+                    <h3>Captured Data</h3>
+                    <div className="results-content">
+                        {(capturedImages.temperature || capturedImages.weight) && (
+                            <div className="captured-images-container">
+                                {capturedImages.temperature && (
+                                    <div className="captured-image-card">
+                                        <h4>Temperature</h4>
+                                        <img src={capturedImages.temperature} alt='Captured Temperature' className="captured-image" />
+                                        {capturedData.temperature && (
+                                            <div className="data-display">
+                                                <div className="data-value">{capturedData.temperature.formatted_value}</div>
+                                                <div className="data-raw">{capturedData.temperature.raw_text}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {capturedImages.weight && (
+                                    <div className="captured-image-card">
+                                        <h4>Weight</h4>
+                                        <img src={capturedImages.weight} alt='Captured Weight' className="captured-image" />
+                                        {capturedData.weight && (
+                                            <div className="data-display">
+                                                <div className="data-value">{capturedData.weight.formatted_value}</div>
+                                                <div className="data-raw">{capturedData.weight.raw_text}</div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         )}
                         
-                        {!capturedImage && !temperatureData && !weightData && (
+                        {!capturedImages.temperature && !capturedImages.weight && (
                             <div className="no-data">
                                 <p>No data captured yet</p>
-                                <p>Use the camera buttons to start capturing</p>
+                                <p>Open the capture window to begin</p>
                             </div>
                         )}
                     </div>

@@ -1,13 +1,10 @@
 // Firebase configuration
 async function loadFirebaseConfig() {
     try {
-        const response = await fetch('/config/firebaseConfig.json'); // Adjust the path if necessary
+        const response = await fetch('/config/firebaseConfig.json');
         const firebaseConfig = await response.json();
-
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-
         console.log("Firebase initialized successfully.");
         return db;
     } catch (error) {
@@ -16,7 +13,6 @@ async function loadFirebaseConfig() {
     }
 }
 
-// Call the function to load Firebase config and initialize
 let db;
 loadFirebaseConfig().then(database => {
     db = database;
@@ -31,7 +27,6 @@ remoteVideo.srcObject = remoteStream;
 let peerConnection;
 let roomId;
 
-// STUN server configuration
 const iceServers = {
     iceServers: [
         {
@@ -40,12 +35,17 @@ const iceServers = {
     ]
 };
 
-// Open user media
+async function getBuiltInCamera() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const builtInCamera = devices.find(device => 
+        device.kind === 'videoinput' && 
+        device.label.toLowerCase().includes('built-in')
+    );
+    return builtInCamera ? { deviceId: builtInCamera.deviceId } : true;
+}
+
 async function openUserMedia() {
     try {
-        console.log("Requesting access to media devices...");
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        console.log("Media devices accessed successfully.");
         localVideo.srcObject = localStream;
 
         document.getElementById("startCall").disabled = false;
