@@ -6,13 +6,15 @@ const CameraCapture = () => {
     const [image, setImage] = useState(null);
     const [captureType, setCaptureType] = useState(null);
     const [cameraDeviceId, setCameraDeviceId] = useState(null);
+    const [roomId, setRoomId] = useState("");  // Add state for roomId
+    const [isRoomIdEntered, setIsRoomIdEntered] = useState(false);  // Flag to check if roomId is entered
 
     // Function to find an external camera if available
     useEffect(() => {
         navigator.mediaDevices.enumerateDevices()
             .then((devices) => {
                 const videoDevices = devices.filter(device => device.kind === "videoinput");
-                
+
                 if (videoDevices.length > 1) {
                     // If multiple cameras exist, prioritize the external one
                     setCameraDeviceId(videoDevices[1].deviceId);
@@ -34,13 +36,13 @@ const CameraCapture = () => {
         }
     };
 
-    // Function to send image to Django backend
+    // Function to send image to Django backend with roomId
     const sendImageToBackend = async (imageSrc, type) => {
         try {
             const response = await fetch("http://127.0.0.1:8000/api/upload/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ image: imageSrc, type }),
+                body: JSON.stringify({ image: imageSrc, type, room_id: roomId }),  // Send room_id
             });
 
             const data = await response.json();
@@ -50,39 +52,69 @@ const CameraCapture = () => {
         }
     };
 
+    // Function to handle roomId input
+    const handleRoomIdInput = (e) => {
+        setRoomId(e.target.value);
+    };
+
+    const handleRoomIdSubmit = () => {
+        if (roomId) {
+            setIsRoomIdEntered(true); // Mark that roomId has been entered
+        } else {
+            alert("Please enter a room ID");
+        }
+    };
+
     return (
         <div style={{ textAlign: "center", padding: "20px" }}>
             <h2>Capture Data</h2>
             
-            {cameraDeviceId ? (
-                <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    width={400}
-                    height={300}
-                    videoConstraints={{ deviceId: cameraDeviceId }}
-                />
-            ) : (
-                <p>No camera detected</p>
-            )}
-
-            <div style={{ marginTop: "20px" }}>
-                <button onClick={() => captureImage("temperature")} style={{ margin: "10px", padding: "10px" }}>
-                    Capture Temperature
-                </button>
-                <button onClick={() => captureImage("weight")} style={{ margin: "10px", padding: "10px" }}>
-                    Capture Weight
-                </button>
-                <button onClick={() => window.close()} style={{ margin: "10px", padding: "10px" }}>
-                    Exit
-                </button>
-            </div>
-
-            {image && (
+            {!isRoomIdEntered ? (
                 <div>
-                    <h3>Captured {captureType}</h3>
-                    <img src={image} alt="Captured" style={{ width: "300px", marginTop: "10px" }} />
+                    <input
+                        type="text"
+                        placeholder="Enter Room ID"
+                        value={roomId}
+                        onChange={handleRoomIdInput}
+                        style={{ padding: "10px", marginBottom: "20px" }}
+                    />
+                    <button onClick={handleRoomIdSubmit} style={{ padding: "10px" }}>
+                        Submit Room ID
+                    </button>
+                </div>
+            ) : (
+                <div>
+                    {cameraDeviceId ? (
+                        <Webcam
+                            audio={false}
+                            ref={webcamRef}
+                            screenshotFormat="image/jpeg"
+                            width={400}
+                            height={300}
+                            videoConstraints={{ deviceId: cameraDeviceId }}
+                        />
+                    ) : (
+                        <p>No camera detected</p>
+                    )}
+
+                    <div style={{ marginTop: "20px" }}>
+                        <button onClick={() => captureImage("temperature")} style={{ margin: "10px", padding: "10px" }}>
+                            Capture Temperature
+                        </button>
+                        <button onClick={() => captureImage("weight")} style={{ margin: "10px", padding: "10px" }}>
+                            Capture Weight
+                        </button>
+                        <button onClick={() => window.close()} style={{ margin: "10px", padding: "10px" }}>
+                            Exit
+                        </button>
+                    </div>
+
+                    {image && (
+                        <div>
+                            <h3>Captured {captureType}</h3>
+                            <img src={image} alt="Captured" style={{ width: "300px", marginTop: "10px" }} />
+                        </div>
+                    )}
                 </div>
             )}
         </div>

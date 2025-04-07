@@ -85,18 +85,22 @@ async function startVideoCall() {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
-        // Create a Firestore room
-        const roomWithOffer = {
-            offer: {
-                type: offer.type,
-                sdp: offer.sdp
-            }
-        };
-        const roomRef = await db.collection("rooms").add(roomWithOffer);
-        roomId = roomRef.id;
+      // Create a Firestore room
+const roomWithOffer = {
+    offer: {
+        type: offer.type,
+        sdp: offer.sdp
+    }
+};
+const roomRef = await db.collection("rooms").add(roomWithOffer);
+roomId = roomRef.id;
 
-        console.log(`Room created with ID: ${roomId}`);
-        document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
+// 👇 Add this line to expose the roomId globally
+window.currentRoom = roomId;
+
+console.log(`Room created with ID: ${roomId}`);
+document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
+
 
         // Enable the Hang Up button
         document.getElementById("hangUp").disabled = false;

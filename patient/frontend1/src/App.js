@@ -22,6 +22,10 @@ const App = () => {
         weight: null
     });
 
+    const [roomId, setRoomId] = useState('');
+    const [showRoomIdModal, setShowRoomIdModal] = useState(false);
+    const [pendingCaptureType, setPendingCaptureType] = useState(null);
+
     const refreshDevices = useCallback(() => {
         navigator.mediaDevices.enumerateDevices()
             .then(devices => {
@@ -60,7 +64,6 @@ const App = () => {
     };
 
     const exitCamera = () => {
-        // Only reset the camera-related states, not the captured data
         setShowCamera(false);
         setShowStream(false);
         setMode(null);
@@ -93,15 +96,17 @@ const App = () => {
                 setTimer(prev => prev - 1); // Decrement the timer every second
             }, 1000);
     
-            // When the timer reaches 0, capture the image
+            // When the timer reaches 0, capture the image and close the camera
             if (timer === 1) {
                 captureImage(activeCapture);
                 clearInterval(timerId);
+                exitCamera(); // Close the camera after capture
             }
     
             return () => clearInterval(timerId); // Clear interval when component unmounts or dependencies change
         }
     }, [showCamera, timer, activeCapture, cameraReady, isCapturing, captureImage]);
+    
 
     const handleOnReady = () => {
         setCameraReady(true);
@@ -137,6 +142,22 @@ const App = () => {
         openCaptureWindow();
     };
 
+    const handleConfirmRoomId = () => {
+        if (roomId.trim()) {
+            setShowRoomIdModal(false);
+            console.log("Pending Capture Type:", pendingCaptureType); // Debugging line to verify type
+            setActiveCapture(pendingCaptureType); // Set activeCapture based on pendingCaptureType
+            setTimer(5); // Reset the timer
+            console.log("Active Capture after confirmation:", pendingCaptureType); // Verify state change
+        }
+    };
+
+    const handleCapture = (type) => {
+        console.log("Setting capture type to:", type); // Debugging line
+        setPendingCaptureType(type);
+        setShowRoomIdModal(true); // Open the modal
+    };
+
     return (
         <div className="app-container">
             <header className="app-header">
@@ -163,19 +184,13 @@ const App = () => {
                     <div className="camera-view">
                         <div className="capture-controls">
                             <button 
-                                onClick={() => {
-                                    setActiveCapture('temperature'); // Set the capture type
-                                    setTimer(5); // Reset the timer to 5 seconds
-                                }}
+                                onClick={() => handleCapture('temperature')}
                                 className={`capture-type-btn ${activeCapture === 'temperature' ? 'active' : ''}`}
                             >
                                 Capture Temperature
                             </button>
                             <button 
-                                onClick={() => {
-                                    setActiveCapture('weight'); // Set the capture type
-                                    setTimer(5); // Reset the timer to 5 seconds
-                                }}
+                                onClick={() => handleCapture('weight')}
                                 className={`capture-type-btn ${activeCapture === 'weight' ? 'active' : ''}`}
                             >
                                 Capture Weight
@@ -268,6 +283,33 @@ const App = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Room ID Modal */}
+            {showRoomIdModal && (
+                <div className="modal-backdrop">
+                    <div className="modal">
+                        <h3>Enter Room ID</h3>
+                        <input 
+                            type="text" 
+                            value={roomId} 
+                            onChange={(e) => setRoomId(e.target.value)} 
+                            placeholder="Room ID"
+                        />
+                        <div className="modal-buttons">
+                            <button onClick={handleConfirmRoomId}>
+                                Confirm
+                            </button>
+                            <button onClick={() => {
+                                setShowRoomIdModal(false);
+                                setRoomId('');
+                                setPendingCaptureType(null);
+                            }}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

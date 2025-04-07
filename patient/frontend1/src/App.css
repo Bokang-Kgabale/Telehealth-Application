@@ -422,3 +422,36 @@ body {
     max-width: 300px;
   }
 }
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  width: 300px;
+  text-align: center;
+}
+
+.modal input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+}
+
+.modal-buttons button {
+  margin: 5px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
