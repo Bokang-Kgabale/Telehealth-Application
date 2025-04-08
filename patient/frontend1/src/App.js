@@ -80,6 +80,29 @@ const App = () => {
         setActiveCapture(null);
     };
 
+    // Move the uploadImage function here, before it's used
+    const uploadImage = useCallback(async (imageSrc, type) => {
+        try {
+            const blob = await fetch(imageSrc).then(res => res.blob());
+            const formData = new FormData();
+            formData.append('image', blob, `${type}.jpg`);
+            formData.append('type', type);
+            formData.append('roomId', roomId);  // ✅ Add roomId to upload
+    
+            const response = await fetch('http://127.0.0.1:8000/api/upload/', {
+                method: 'POST',
+                body: formData,
+            });
+    
+            const data = await response.json();
+            setCapturedData(prev => ({ ...prev, [type]: data }));
+            setIsCapturing(false);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            setIsCapturing(false);
+        }
+    }, [roomId]);  // ✅ Declare roomId as dependency
+
     const captureImage = useCallback((type) => {
         if (webcamRef.current && !isCapturing) {
             setIsCapturing(true);
@@ -88,7 +111,7 @@ const App = () => {
             setCapturedImages(prev => ({ ...prev, [type]: imageSrc }));
             uploadImage(imageSrc, type);
         }
-    }, [isCapturing]);
+    }, [isCapturing, uploadImage]);
 
     useEffect(() => {
         if (showCamera && timer > 0 && cameraReady && activeCapture && !isCapturing) {
@@ -110,27 +133,6 @@ const App = () => {
 
     const handleOnReady = () => {
         setCameraReady(true);
-    };
-
-    const uploadImage = async (imageSrc, type) => {
-        try {
-            const blob = await fetch(imageSrc).then(res => res.blob());
-            const formData = new FormData();
-            formData.append('image', blob, `${type}.jpg`);
-            formData.append('type', type);
-
-            const response = await fetch('http://127.0.0.1:8000/api/upload/', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-            setCapturedData(prev => ({ ...prev, [type]: data }));
-            setIsCapturing(false);
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            setIsCapturing(false);
-        }
     };
 
     const startSession = () => {

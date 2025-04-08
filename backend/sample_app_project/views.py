@@ -32,9 +32,12 @@ def upload_image(request):
     if request.method == 'POST':
         image_file = request.FILES.get('image')
         capture_type = request.POST.get('type')  # 'temperature' or 'weight'
+        room_id = request.POST.get('roomId')     # <- Custom Firebase key
 
         if not image_file:
             return JsonResponse({'error': 'No image uploaded'}, status=400)
+        if not room_id:
+            return JsonResponse({'error': 'No roomId provided'}, status=400)
 
         try:
             # Convert image to byte format
@@ -51,13 +54,14 @@ def upload_image(request):
             raw_text = texts[0].description if texts else "No text found"
             extracted_value = extract_numbers(raw_text, capture_type)
 
-            # Save to Firebase
-            save_to_firebase(capture_type, raw_text, extracted_value)
+            # Save to Firebase using roomId as custom key
+            save_to_firebase(capture_type, raw_text, extracted_value, room_id)
 
             return JsonResponse({
+                "room_id": room_id,
                 "capture_type": capture_type,
                 "raw_text": raw_text,
-                "formatted_value": extracted_value  # Will include "Kg" or "°C"
+                "formatted_value": extracted_value
             })
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
@@ -75,13 +79,40 @@ def extract_numbers(text, capture_type):
             return f"{value}°C"
     return "No valid number found"
 
-def save_to_firebase(capture_type, raw_text, formatted_value):
-    """Saves extracted OCR data to Firebase Realtime Database."""
-    ref = db.reference(f'/data/{capture_type}')
-    ref.push({
+def save_to_firebase(capture_type, raw_text, formatted_value, custom_key):
+    """Saves extracted OCR data to Firebase Realtime Database using custom_key as parent node."""
+    ref = db.reference(f'/data/{custom_key}/{capture_type}')
+    ref.set({
         "formatted_value": formatted_value,
         "raw_text": raw_text
     })
+
+@require_http_methods(["GET"])
+def get_captured_data(request):
+    """Retrieve captured data for a specific roomId from Firebase."""
+    try:
+        room_id = request.GET.get("roomId")  # Capture roomId from query parameter
+
+        if not room_id:
+            return JsonResponse({"error": "Missing roomId parameter"}, status=400)
+
+        temperature_ref = db.reference(f'/data/{room_id}/temperature')
+        weight_ref = db.reference(f'/data/{room_id}/weight')
+
+        temperature_data = temperature_ref.get()
+        weight_data = weight_ref.get()
+
+        if not temperature_data and not weight_data:
+            return JsonResponse({"error": "No data found for given roomId"}, status=404)
+
+        formatted_data = {
+            "temperature": [temperature_data] if temperature_data else [],
+            "weight": [weight_data] if weight_data else [],
+        }
+
+        return JsonResponse({"data": formatted_data})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -105,25 +136,5 @@ def start_live_stream(request):
         import requests
         response = requests.get("http://127.0.0.1:8001/start-server")
         return JsonResponse(response.json())
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-@require_http_methods(["GET"])
-def get_captured_data(request):
-    """Retrieve all captured data from Firebase."""
-    try:
-        ref = db.reference(f'/data')
-        data = ref.get()
-        if not data:
-            return JsonResponse({"error": "No data found"}, status=404)
-
-        # Format the data for the doctor's frontend
-        formatted_data = {
-            "temperature": data.get("temperature"),
-            "weight": data.get("weight"),
-            # Add any other relevant data here
-        }
-        
-        return JsonResponse({"data": formatted_data})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

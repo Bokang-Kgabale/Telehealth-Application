@@ -23,7 +23,7 @@ from .views import upload_image, get_captured_data, start_live_stream
 
 urlpatterns = [
     path("api/upload/", upload_image, name="upload_image"),
-    path("api/get-data/<str:room_id>/", get_captured_data, name="get_captured_data"),
-    path("api/start-stream/", start_live_stream, name="start_live_stream"),  # Added route
+    path("api/get-data/", get_captured_data, name="get_captured_data"),  
+    path("api/start-stream/", start_live_stream, name="start_live_stream"),
 ]
 

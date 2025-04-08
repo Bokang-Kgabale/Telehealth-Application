@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 
 const App = () => {
     const [showStream, setShowStream] = useState(false);
-    const [capturedData, setCapturedData] = useState(null); // State to store captured data
-    const [loading, setLoading] = useState(true); // State to track loading
+    const [capturedData, setCapturedData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(""); // Room ID
 
     const toggleLiveStream = async () => {
         setShowStream(!showStream);
 
         if (!showStream) {
-            // Start the video conferencing server on port 8001
             try {
-                await fetch('http://127.0.0.1:8001/start-server'); // Updated to match iframe port
+                await fetch('http://127.0.0.1:8001/start-server');
             } catch (error) {
                 console.error('Error starting live stream server:', error);
             }
@@ -20,50 +20,36 @@ const App = () => {
     };
 
     const fetchCapturedData = async () => {
-        setLoading(true); // Set loading to true when fetching starts
+        if (!searchQuery.trim()) {
+            alert("Please enter a Room ID.");
+            return;
+        }
+
+        setLoading(true);
         try {
-            const temperatureResponse = await fetch('https://fir-rtc-521a2-default-rtdb.firebaseio.com/data/temperature.json');
-            const weightResponse = await fetch('https://fir-rtc-521a2-default-rtdb.firebaseio.com/data/weight.json');
+            const response = await fetch(`http://127.0.0.1:8000/api/get-captured-data?roomId=${encodeURIComponent(searchQuery)}`);
+            const data = await response.json();
 
-            const temperatureData = await temperatureResponse.json();
-            const weightData = await weightResponse.json();
-
-            if (!temperatureData && !weightData) {
-                console.error('No data found');
-                return;
+            if (response.ok) {
+                setCapturedData(data.data);
+            } else {
+                console.error(data.error);
+                setCapturedData(null);
             }
-
-            console.log('Temperature data:', temperatureData);
-            console.log('Weight data:', weightData);
-
-            // Combine the data into a single object
-            const combinedData = {
-                temperature: Object.values(temperatureData || {}),
-                weight: Object.values(weightData || {}),
-            };
-
-            setCapturedData(combinedData); // Update the state with the combined data
         } catch (error) {
             console.error('Error fetching captured data:', error);
         } finally {
-            setLoading(false); // Set loading to false when fetching is done
+            setLoading(false);
         }
     };
 
-    // Fetch captured data when the component mounts
-    useEffect(() => {
-        fetchCapturedData();
-    }, []);
-
     return (
         <div className="app-container">
-            {/* Header */}
             <header className="app-header">
                 <h1>Telehealth Doctor Dashboard</h1>
             </header>
 
             <div className="main-content">
-                {/* Sidebar buttons */}
                 <div className="sidebar">
                     <h3>Actions</h3>
                     <div className="button-group">
@@ -74,7 +60,6 @@ const App = () => {
                     </div>
                 </div>
 
-                {/* Main Live Stream Section */}
                 <div className="camera-container">
                     {showStream ? (
                         <div className="stream-view">
@@ -98,9 +83,22 @@ const App = () => {
                     )}
                 </div>
 
-                {/* Captured Data Section */}
                 <div className="results-panel">
                     <h3>Patient Vitals</h3>
+
+                    <div className="search-section">
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Enter Room ID (e.g. ROOM123)..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        <button className="button search-btn" onClick={fetchCapturedData}>
+                            Search
+                        </button>
+                    </div>
+
                     <div className="results-content">
                         {loading ? (
                             <div className="loading-indicator">
@@ -108,20 +106,20 @@ const App = () => {
                             </div>
                         ) : capturedData ? (
                             <div className="data-cards">
-                                {capturedData.temperature.map((temp, index) => (
-                                    <div key={index} className="data-card temperature-card spaced-card">
+                                {capturedData.temperature && (
+                                    <div className="data-card temperature-card spaced-card">
                                         <h4>Temperature Data</h4>
-                                        <div className="data-value">{temp.formatted_value}</div>
-                                        <div className="data-raw">Raw: {temp.raw_text}</div>
+                                        <div className="data-value">{capturedData.temperature.formatted_value}</div>
+                                        <div className="data-raw">Raw: {capturedData.temperature.raw_text}</div>
                                     </div>
-                                ))}
-                                {capturedData.weight.map((wt, index) => (
-                                    <div key={index} className="data-card weight-card spaced-card">
+                                )}
+                                {capturedData.weight && (
+                                    <div className="data-card weight-card spaced-card">
                                         <h4>Weight Data</h4>
-                                        <div className="data-value">{wt.formatted_value}</div>
-                                        <div className="data-raw">Raw: {wt.raw_text}</div>
+                                        <div className="data-value">{capturedData.weight.formatted_value}</div>
+                                        <div className="data-raw">Raw: {capturedData.weight.raw_text}</div>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         ) : (
                             <div className="no-data">
