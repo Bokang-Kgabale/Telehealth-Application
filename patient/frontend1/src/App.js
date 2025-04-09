@@ -163,7 +163,7 @@ const App = () => {
     return (
         <div className="app-container">
             <header className="app-header">
-                <h1>Medical Data Capture System</h1>
+                <h1>Medical Data Capture System - Patient Dashboard</h1>
                 {mode && <h2 className={`mode-indicator ${mode}`}>Mode: {mode.charAt(0).toUpperCase() + mode.slice(1)}</h2>}
             </header>
 
@@ -245,7 +245,7 @@ const App = () => {
                 </div>
 
                 <div className="results-panel">
-                    <h3>Captured Data</h3>
+                    <h3>Patient Vitals</h3>
                     <div className="results-content">
                         {(capturedImages.temperature || capturedImages.weight) && (
                             <div className="captured-images-container">
