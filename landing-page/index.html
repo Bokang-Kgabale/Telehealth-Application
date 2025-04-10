@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Telehealth Portal</title>
+  <style>
+    body {
+      background: #f9f9f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 2rem;
+      color: #333;
+    }
+
+    .button {
+      background-color: #1f2937;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      margin: 1rem;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    .button:hover {
+      background-color: #111827;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to the Telehealth Portal</h1>
+    <button class="button" onclick="window.location.href='/patient'">Patient</button>
+    <button class="button" onclick="window.location.href='/doctor'">Doctor</button>
+  </div>
+</body>
+</html>
