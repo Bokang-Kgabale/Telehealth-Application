@@ -175,10 +175,10 @@ const App = () => {
                             <i className="icon stream-icon"></i>
                             Capture Vitals
                         </button>                        
-                        <button onClick={exitCamera} className="button exit-btn">
+                        {/* <button onClick={exitCamera} className="button exit-btn">
                             <i className="icon exit-icon"></i>
                             Exit
-                        </button>
+                        </button> */}
                     </div>
                 </div>
 

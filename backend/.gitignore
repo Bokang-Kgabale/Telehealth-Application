@@ -1,5 +1,5 @@
 config/vision-key.json
-config/fir-rtc-521a2-firebase-adminsdk-fbsvc-5554e5bdfc.json
+config/firebase-adminsdk.json
 # Node modules
 node_modules/
 

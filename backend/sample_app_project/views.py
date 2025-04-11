@@ -13,7 +13,7 @@ from django.views.decorators.http import require_http_methods
 
 # Set up Firebase credentials
 base_dir = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(base_dir, "..", "config", "fir-rtc-521a2-firebase-adminsdk-fbsvc-5554e5bdfc.json")
+json_path = os.path.join(base_dir, "..", "config", "firebase-adminsdk.json")
 cred = credentials.Certificate(json_path)
 # Initialize Firebase Admin SDK
 firebase_admin.initialize_app(cred, {
