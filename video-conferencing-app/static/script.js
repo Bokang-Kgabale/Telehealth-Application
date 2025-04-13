@@ -30,7 +30,7 @@ let db;
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 
-let localStream;
+
 let remoteStream = new MediaStream();
 remoteVideo.srcObject = remoteStream;
 let peerConnection;
