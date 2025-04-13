@@ -1,18 +1,30 @@
-// Firebase configuration
-fetch('/firebase-config')
-  .then(res => res.json())
-  .then(config => {
-    // Initialize Firebase with the fetched configuration
-    firebase.initializeApp(config);
-    const db = firebase.firestore();
-    console.log("Firebase initialized successfully.");
-    // Now that Firebase is initialized, proceed with the rest of the setup
-    initializeVideoCall();
-  })
-  .catch(error => {
-    console.error("Error loading Firebase configuration:", error);
-    alert("Failed to load Firebase configuration.");
-  });
+// Make sure Firebase SDKs are already loaded in your HTML:
+// <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+// <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
+
+// Define initializeVideoCall BEFORE calling it
+function initializeVideoCall() {
+    console.log("Video call initialized");
+    // TODO: Add your video call setup logic here
+  }
+  
+  // Firebase configuration
+  fetch('/firebase-config')
+    .then(res => res.json())
+    .then(config => {
+      // Initialize Firebase with the fetched configuration
+      firebase.initializeApp(config);
+      const db = firebase.firestore();
+      console.log("Firebase initialized successfully.");
+  
+      // Now that Firebase is initialized, proceed with the rest of the setup
+      initializeVideoCall(); // ✅ Defined already
+    })
+    .catch(error => {
+      console.error("Error loading Firebase configuration:", error);
+      alert("Failed to load Firebase configuration.");
+    });
+  
 
 let db;
 const localVideo = document.getElementById("localVideo");
