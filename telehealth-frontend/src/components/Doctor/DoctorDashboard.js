@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import './App.css';
+import './DoctorDashboard.css';
 
-const App = () => {
+const DoctorDashboard = () => {
     const [showStream, setShowStream] = useState(false);
     const [capturedData, setCapturedData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -87,20 +87,19 @@ const App = () => {
                     <h3>Patient Vitals</h3>
 
                     <div className="search-section">
-    <div className="search-container">
-        <input
-            type="text"
-            className="search-input"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <button className="search-button" onClick={fetchCapturedData}>
-            🔍
-        </button>
-    </div>
-</div>
-
+                        <div className="search-container">
+                            <input
+                                type="text"
+                                className="search-input"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <button className="search-button" onClick={fetchCapturedData}>
+                                🔍
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="results-content">
                         {loading ? (
@@ -137,4 +136,4 @@ const App = () => {
     );
 };
 
-export default App;
+export default DoctorDashboard;

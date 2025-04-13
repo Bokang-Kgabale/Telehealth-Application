@@ -1,7 +1,8 @@
 config/firebaseConfig.json
 # Node modules
-Telehealth/node_modules/
+/Telehealth-Application/node_modules/
 
 # Other ignores
 *.pyc
 __pycache__/
+/node_modules/

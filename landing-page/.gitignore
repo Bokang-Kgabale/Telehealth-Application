@@ -1,6 +1,0 @@
-# Node modules
-node_modules/
-
-# Other ignores
-*.pyc
-__pycache__/

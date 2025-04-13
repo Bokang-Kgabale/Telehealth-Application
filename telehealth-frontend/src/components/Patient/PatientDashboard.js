@@ -1,8 +1,8 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react'; 
 import Webcam from 'react-webcam';
-import './App.css';
+import './PatientDashboard.css';
 
-const App = () => {
+const PatientDashboard = () => {  // Change App to PatientDashboard
     const webcamRef = useRef(null);
     const [showCamera, setShowCamera] = useState(false);
     const [showStream, setShowStream] = useState(false);
@@ -80,7 +80,6 @@ const App = () => {
         setActiveCapture(null);
     };
 
-    // Move the uploadImage function here, before it's used
     const uploadImage = useCallback(async (imageSrc, type) => {
         try {
             const blob = await fetch(imageSrc).then(res => res.blob());
@@ -101,7 +100,7 @@ const App = () => {
             console.error('Error uploading image:', error);
             setIsCapturing(false);
         }
-    }, [roomId]);  // ✅ Declare roomId as dependency
+    }, [roomId]);
 
     const captureImage = useCallback((type) => {
         if (webcamRef.current && !isCapturing) {
@@ -129,7 +128,6 @@ const App = () => {
             return () => clearInterval(timerId); // Clear interval when component unmounts or dependencies change
         }
     }, [showCamera, timer, activeCapture, cameraReady, isCapturing, captureImage]);
-    
 
     const handleOnReady = () => {
         setCameraReady(true);
@@ -147,15 +145,15 @@ const App = () => {
     const handleConfirmRoomId = () => {
         if (roomId.trim()) {
             setShowRoomIdModal(false);
-            console.log("Pending Capture Type:", pendingCaptureType); // Debugging line to verify type
+            console.log("Pending Capture Type:", pendingCaptureType);
             setActiveCapture(pendingCaptureType); // Set activeCapture based on pendingCaptureType
             setTimer(5); // Reset the timer
-            console.log("Active Capture after confirmation:", pendingCaptureType); // Verify state change
+            console.log("Active Capture after confirmation:", pendingCaptureType);
         }
     };
 
     const handleCapture = (type) => {
-        console.log("Setting capture type to:", type); // Debugging line
+        console.log("Setting capture type to:", type);
         setPendingCaptureType(type);
         setShowRoomIdModal(true); // Open the modal
     };
@@ -175,10 +173,6 @@ const App = () => {
                             <i className="icon stream-icon"></i>
                             Capture Vitals
                         </button>                        
-                        {/* <button onClick={exitCamera} className="button exit-btn">
-                            <i className="icon exit-icon"></i>
-                            Exit
-                        </button> */}
                     </div>
                 </div>
 
@@ -316,4 +310,4 @@ const App = () => {
     );
 };
 
-export default App;
+export default PatientDashboard;

@@ -19,6 +19,7 @@
   "description": "",
   "dependencies": {
     "express": "^5.1.0",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "react-webcam": "^7.2.0"
   }
 }
