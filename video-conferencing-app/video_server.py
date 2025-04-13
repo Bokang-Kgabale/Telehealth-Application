@@ -1,7 +1,8 @@
 import os
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from typing import List
 
 app = FastAPI()
@@ -12,8 +13,8 @@ static_dir = os.path.abspath("static")
 # Mount the static folder for serving HTML, CSS, and JS files
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Serve the config directory
-app.mount("/config", StaticFiles(directory="config"), name="config")
+# Removed: Mount the config directory
+# app.mount("/config", StaticFiles(directory="config"), name="config")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
@@ -26,6 +27,15 @@ async def read_index():
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return HTMLResponse(content="", status_code=204)
+
+# ✅ Serve firebaseConfig.json from environment variable
+@app.get("/firebase-config")
+async def get_firebase_config():
+    try:
+        config_json = os.getenv("FIREBASE_CONFIG")
+        return JSONResponse(content=json.loads(config_json))
+    except Exception as e:
+        return JSONResponse(content={"error": f"Failed to load Firebase config: {str(e)}"}, status_code=500)
 
 class ConnectionManager:
     def __init__(self):
@@ -69,4 +79,5 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run("video_server:app", host="0.0.0.0", port=port)
