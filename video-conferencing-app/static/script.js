@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
         track.enabled = isMuted;
       });
       isMuted = !isMuted;
-      document.getElementById("muteAudio").innerText = isMuted ? "Unmute" : "Mute";
+      document.getElementById("muteAudio").innerHTML = isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
     }
   };
 
@@ -231,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
         track.enabled = isCameraOff;
       });
       isCameraOff = !isCameraOff;
-      document.getElementById("toggleVideo").innerText = isCameraOff ? "Enable Camera" : "Disable Camera";
+      document.getElementById("toggleVideo").innerHTML = isCameraOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
     }
   };
 });
