@@ -2,43 +2,42 @@
 fetch('/firebase-config')
   .then(res => res.json())
   .then(config => {
-    // Initialize Firebase with the fetched configuration
     firebase.initializeApp(config);
-    db = firebase.firestore(); // ✅ Assign db here
+    db = firebase.firestore();
     console.log("Firebase initialized successfully.");
-
-    // Now that Firebase is initialized, proceed with the rest of the setup
-    initializeVideoCall(); // ✅ Defined already
+    initializeVideoCall();
   })
   .catch(error => {
     console.error("Error loading Firebase configuration:", error);
     alert("Failed to load Firebase configuration.");
   });
 
-// ✅ Global variables
+// Global variables
 let db;
-let localStream; // ✅ Declare globally
+let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
-let roomId; // To track the current room
+let roomId;
+
+let isMuted = false;
+let isCameraOff = false;
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
 
 const iceServers = {
-  iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302"
-    }
-  ]
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
 };
+
+function initializeVideoCall() {
+  console.log("Video call initialized");
+}
 
 async function getBuiltInCamera() {
   const devices = await navigator.mediaDevices.enumerateDevices();
-  const builtInCamera = devices.find(device => 
-    device.kind === 'videoinput' && 
-    device.label.toLowerCase().includes('built-in')
+  const builtInCamera = devices.find(device =>
+    device.kind === 'videoinput' && device.label.toLowerCase().includes('built-in')
   );
   return builtInCamera ? { deviceId: builtInCamera.deviceId } : true;
 }
@@ -49,18 +48,15 @@ async function openUserMedia() {
     localVideo.srcObject = localStream;
     document.getElementById("startCall").disabled = false;
     document.getElementById("joinCall").disabled = false;
+    document.getElementById("muteAudio").disabled = false;
+    document.getElementById("toggleVideo").disabled = false;
     console.log("User media opened:", localStream);
   } catch (error) {
     console.error("Error accessing media devices:", error);
     alert("Unable to access camera and microphone. Please check your permissions.");
   }
 }
-// Define initializeVideoCall BEFORE calling it
-function initializeVideoCall() {
-  console.log("Video call initialized");
-  // TODO: Add your video call setup logic here
-}
-// Start a video call
+
 async function startVideoCall() {
   try {
     console.log("Starting video call...");
@@ -71,7 +67,6 @@ async function startVideoCall() {
     }
 
     peerConnection = new RTCPeerConnection(iceServers);
-
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.ontrack = event => {
@@ -93,9 +88,9 @@ async function startVideoCall() {
         sdp: offer.sdp
       }
     };
+
     const roomRef = await db.collection("rooms").add(roomWithOffer);
     roomId = roomRef.id;
-
     window.currentRoom = roomId;
 
     console.log(`Room created with ID: ${roomId}`);
@@ -123,7 +118,6 @@ async function startVideoCall() {
   }
 }
 
-// Join an existing room
 async function joinRoom(roomId) {
   try {
     const roomRef = db.collection("rooms").doc(roomId);
@@ -143,7 +137,6 @@ async function joinRoom(roomId) {
     }
 
     peerConnection = new RTCPeerConnection(iceServers);
-
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.ontrack = event => {
@@ -177,7 +170,6 @@ async function joinRoom(roomId) {
   }
 }
 
-// Hang up the call
 async function hangUp() {
   console.log("Hanging up the call...");
 
@@ -204,19 +196,42 @@ async function hangUp() {
   document.getElementById("startCall").disabled = true;
   document.getElementById("joinCall").disabled = true;
   document.getElementById("hangUp").disabled = true;
+  document.getElementById("muteAudio").disabled = true;
+  document.getElementById("toggleVideo").disabled = true;
 
   console.log("Call ended and UI reset.");
-
   location.reload();
 }
 
 // Event listeners
-document.getElementById("openMedia").onclick = openUserMedia;
-document.getElementById("startCall").onclick = startVideoCall;
-document.getElementById("joinCall").onclick = async () => {
-  const roomId = prompt("Enter Room ID:");
-  if (roomId) {
-    await joinRoom(roomId);
-  }
-};
-document.getElementById("hangUp").onclick = hangUp;
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("openMedia").onclick = openUserMedia;
+  document.getElementById("startCall").onclick = startVideoCall;
+  document.getElementById("joinCall").onclick = async () => {
+    const roomId = prompt("Enter Room ID:");
+    if (roomId) {
+      await joinRoom(roomId);
+    }
+  };
+  document.getElementById("hangUp").onclick = hangUp;
+
+  document.getElementById("muteAudio").onclick = () => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = isMuted;
+      });
+      isMuted = !isMuted;
+      document.getElementById("muteAudio").innerText = isMuted ? "Unmute" : "Mute";
+    }
+  };
+
+  document.getElementById("toggleVideo").onclick = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = isCameraOff;
+      });
+      isCameraOff = !isCameraOff;
+      document.getElementById("toggleVideo").innerText = isCameraOff ? "Enable Camera" : "Disable Camera";
+    }
+  };
+});

@@ -75,7 +75,7 @@ const DoctorDashboard = () => {
                     ) : (
                         <div className="empty-state">
                             <div className="empty-content">
-                                <i className="icon camera-icon large"></i>
+                                <i className="icon camera-icon2 large"></i>
                                 <h2>Start a Live Stream</h2>
                                 <p>Use the button on the left to start the live stream</p>
                             </div>

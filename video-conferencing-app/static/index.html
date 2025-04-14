@@ -1,58 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Video Call</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WebRTC Video Call</title>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="/static/styles.css" />
 
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
 </head>
 <body>
-    <!-- Video Container -->
-    <div class="video-container">
-        <!-- Remote Video (Background) -->
-        <video id="remoteVideo" autoplay playsinline>
-            Your browser does not support the video tag.
-        </video>
-        <!-- Local Video (Overlay) -->
-        <video id="localVideo" autoplay playsinline>
-            Your browser does not support the video tag.
-        </video>
-    </div>
+  <!-- Video Container -->
+  <div class="video-container">
+    <!-- Remote Video (Background) -->
+    <video id="remoteVideo" autoplay playsinline>
+      Your browser does not support the video tag.
+    </video>
+    <!-- Local Video (Overlay) -->
+    <video id="localVideo" autoplay playsinline>
+      Your browser does not support the video tag.
+    </video>
+  </div>
 
-    <!-- Buttons -->
-    <div class="button-container">
-        <button id="openMedia" title="Open Camera">
-            <i class="fas fa-video"></i>
-        </button>
-        <button id="startCall" title="Start Call" >
-            <i class="fas fa-phone"></i>
-        </button>
-        <button id="joinCall" title="Join Call" >
-            <i class="fas fa-user-plus"></i>
-        </button>
-        <button id="hangUp" title="Hang Up">
-            <i class="fas fa-phone-slash"></i>
-        </button>
-        <button id="muteAudio" title="Mute Audio">
-            <i class="fas fa-microphone"></i>
-        </button>
-    </div>
+  <!-- Buttons -->
+  <div class="button-container">
+    <button id="openMedia" title="Open Camera">
+      <i class="fas fa-video"></i>
+    </button>
+    <button id="startCall" title="Start Call">
+      <i class="fas fa-phone"></i>
+    </button>
+    <button id="joinCall" title="Join Call">
+      <i class="fas fa-user-plus"></i>
+    </button>
+    <button id="hangUp" title="Hang Up">
+      <i class="fas fa-phone-slash"></i>
+    </button>
+    <button id="muteAudio" title="Mute Audio" disabled>
+      <i class="fas fa-microphone"></i>
+    </button>
+    <button id="toggleVideo" title="Disable Camera" disabled>
+      <i class="fas fa-video-slash"></i>
+    </button>
+  </div>
 
-    <!-- Room Info -->
-    <div>
-        <p id="currentRoom"></p>
-    </div>
+  <!-- Room Info -->
+  <div>
+    <p id="currentRoom"></p>
+  </div>
 
-    <!-- Main Script -->
-    <script src="/static/script.js"></script>
+  <!-- Main Script -->
+  <script src="/static/script.js"></script>
 </body>
 </html>
