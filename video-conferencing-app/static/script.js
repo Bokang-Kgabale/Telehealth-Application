@@ -1,9 +1,3 @@
-// Define initializeVideoCall BEFORE calling it
-function initializeVideoCall() {
-    console.log("Video call initialized");
-    // TODO: Add your video call setup logic here
-}
-
 // Firebase configuration
 fetch('/firebase-config')
   .then(res => res.json())
@@ -61,7 +55,11 @@ async function openUserMedia() {
     alert("Unable to access camera and microphone. Please check your permissions.");
   }
 }
-
+// Define initializeVideoCall BEFORE calling it
+function initializeVideoCall() {
+  console.log("Video call initialized");
+  // TODO: Add your video call setup logic here
+}
 // Start a video call
 async function startVideoCall() {
   try {
