@@ -77,11 +77,13 @@ async function startVideoCall() {
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.ontrack = event => {
+      console.log("Remote track received:", event.track);
       event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
     };
 
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
+        console.log("ICE Candidate:", event.candidate);
         db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
       }
     };
@@ -107,6 +109,7 @@ async function startVideoCall() {
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !peerConnection.currentRemoteDescription) {
+        console.log("Setting remote description (answer):", data.answer);
         const answer = new RTCSessionDescription(data.answer);
         await peerConnection.setRemoteDescription(answer);
       }
@@ -116,6 +119,7 @@ async function startVideoCall() {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
+          console.log("Received ICE Candidate:", candidate);
           peerConnection.addIceCandidate(candidate);
         }
       });
@@ -129,6 +133,7 @@ async function startVideoCall() {
 
 async function joinRoom(roomId) {
   try {
+    console.log(`Joining room: ${roomId}`);
     const roomRef = db.collection("rooms").doc(roomId);
     const roomSnapshot = await roomRef.get();
 
@@ -137,7 +142,6 @@ async function joinRoom(roomId) {
       return;
     }
 
-    console.log(`Joining room: ${roomId}`);
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
 
     if (!localStream) {
@@ -149,16 +153,19 @@ async function joinRoom(roomId) {
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.ontrack = event => {
+      console.log("Remote track received:", event.track);
       event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
     };
 
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
+        console.log("ICE Candidate:", event.candidate);
         roomRef.collection("calleeCandidates").add(event.candidate.toJSON());
       }
     };
 
     const offer = roomSnapshot.data().offer;
+    console.log("Setting remote description (offer):", offer);
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -170,10 +177,12 @@ async function joinRoom(roomId) {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
+          console.log("Received ICE Candidate:", candidate);
           peerConnection.addIceCandidate(candidate);
         }
       });
     });
+
   } catch (error) {
     console.error("Error joining room:", error);
     alert("Failed to join the room. Check your Room ID or connection.");
