@@ -34,6 +34,7 @@ function initializeVideoCall() {
   console.log("Video call initialized");
 }
 
+// Attempt to access built-in camera
 async function getBuiltInCamera() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const builtInCamera = devices.find(device =>
@@ -42,18 +43,24 @@ async function getBuiltInCamera() {
   return builtInCamera ? { deviceId: builtInCamera.deviceId } : true;
 }
 
+// Request user media with logging
 async function openUserMedia() {
   try {
+    const permissions = await navigator.permissions.query({ name: "camera" });
+    console.log("Camera permissions:", permissions.state);
+
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
+
     document.getElementById("startCall").disabled = false;
     document.getElementById("joinCall").disabled = false;
     document.getElementById("muteAudio").disabled = false;
     document.getElementById("toggleVideo").disabled = false;
+
     console.log("User media opened:", localStream);
   } catch (error) {
     console.error("Error accessing media devices:", error);
-    alert("Unable to access camera and microphone. Please check your permissions.");
+    alert("Unable to access camera and microphone. Please allow permissions and try again.");
   }
 }
 
@@ -113,8 +120,10 @@ async function startVideoCall() {
         }
       });
     });
+
   } catch (error) {
     console.error("Error starting video call:", error);
+    alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
 
@@ -124,7 +133,7 @@ async function joinRoom(roomId) {
     const roomSnapshot = await roomRef.get();
 
     if (!roomSnapshot.exists) {
-      console.error("Room does not exist!");
+      alert("The room ID you entered does not exist.");
       return;
     }
 
@@ -167,6 +176,7 @@ async function joinRoom(roomId) {
     });
   } catch (error) {
     console.error("Error joining room:", error);
+    alert("Failed to join the room. Check your Room ID or connection.");
   }
 }
 
@@ -180,17 +190,16 @@ async function hangUp() {
 
   if (remoteStream) {
     remoteStream.getTracks().forEach(track => track.stop());
-    remoteStream = null;
   }
-
-  localVideo.srcObject = null;
-  remoteVideo.srcObject = null;
 
   if (peerConnection) {
     peerConnection.close();
     peerConnection = null;
     console.log("Peer connection closed.");
   }
+
+  localVideo.srcObject = null;
+  remoteVideo.srcObject = null;
 
   document.getElementById("currentRoom").innerText = "";
   document.getElementById("startCall").disabled = true;
@@ -208,9 +217,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("openMedia").onclick = openUserMedia;
   document.getElementById("startCall").onclick = startVideoCall;
   document.getElementById("joinCall").onclick = async () => {
-    const roomId = prompt("Enter Room ID:");
-    if (roomId) {
-      await joinRoom(roomId);
+    const inputId = prompt("Enter Room ID:");
+    if (inputId) {
+      await joinRoom(inputId);
     }
   };
   document.getElementById("hangUp").onclick = hangUp;
@@ -221,7 +230,9 @@ document.addEventListener("DOMContentLoaded", () => {
         track.enabled = isMuted;
       });
       isMuted = !isMuted;
-      document.getElementById("muteAudio").innerHTML = isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+      document.getElementById("muteAudio").innerHTML = isMuted
+        ? '<i class="fas fa-microphone-slash"></i>'
+        : '<i class="fas fa-microphone"></i>';
     }
   };
 
@@ -231,7 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
         track.enabled = isCameraOff;
       });
       isCameraOff = !isCameraOff;
-      document.getElementById("toggleVideo").innerHTML = isCameraOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+      document.getElementById("toggleVideo").innerHTML = isCameraOff
+        ? '<i class="fas fa-video-slash"></i>'
+        : '<i class="fas fa-video"></i>';
     }
   };
 });
