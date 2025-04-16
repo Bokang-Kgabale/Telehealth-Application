@@ -19,9 +19,6 @@ let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
 
-let isMuted = false;
-let isCameraOff = false;
-
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
@@ -43,16 +40,11 @@ async function getBuiltInCamera() {
   return builtInCamera ? { deviceId: builtInCamera.deviceId } : true;
 }
 
-// Request user media with logging and permission handling
+// Request user media
 async function openUserMedia() {
   try {
     const permissions = await navigator.permissions.query({ name: "camera" });
     console.log("Camera permissions:", permissions.state);
-    
-    if (permissions.state === 'denied') {
-      alert("Camera permissions denied. Please enable it in your browser settings.");
-      return;
-    }
 
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
@@ -79,16 +71,29 @@ async function startVideoCall() {
     }
 
     peerConnection = new RTCPeerConnection(iceServers);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
 
     peerConnection.ontrack = event => {
-      event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+      console.log("Remote stream received.");
     };
 
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
         db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
+        console.log("Caller ICE candidate sent.");
       }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
     const offer = await peerConnection.createOffer();
@@ -112,8 +117,8 @@ async function startVideoCall() {
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !peerConnection.currentRemoteDescription) {
-        const answer = new RTCSessionDescription(data.answer);
-        await peerConnection.setRemoteDescription(answer);
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        console.log("Remote description set with answer.");
       }
     });
 
@@ -122,6 +127,7 @@ async function startVideoCall() {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           peerConnection.addIceCandidate(candidate);
+          console.log("Added callee candidate.");
         }
       });
     });
@@ -151,16 +157,29 @@ async function joinRoom(roomId) {
     }
 
     peerConnection = new RTCPeerConnection(iceServers);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
 
     peerConnection.ontrack = event => {
-      event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+      console.log("Remote stream received.");
     };
 
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
         roomRef.collection("calleeCandidates").add(event.candidate.toJSON());
+        console.log("Callee ICE candidate sent.");
       }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
     const offer = roomSnapshot.data().offer;
@@ -168,17 +187,26 @@ async function joinRoom(roomId) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
-    const roomWithAnswer = { answer: { type: answer.type, sdp: answer.sdp } };
+    const roomWithAnswer = {
+      answer: {
+        type: answer.type,
+        sdp: answer.sdp
+      }
+    };
+
     await roomRef.update(roomWithAnswer);
+    console.log("Answer sent to Firestore.");
 
     roomRef.collection("callerCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           peerConnection.addIceCandidate(candidate);
+          console.log("Added caller candidate.");
         }
       });
     });
+
   } catch (error) {
     console.error("Error joining room:", error);
     alert("Failed to join the room. Check your Room ID or connection.");
@@ -232,24 +260,24 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("muteAudio").onclick = () => {
     if (localStream) {
       localStream.getAudioTracks().forEach(track => {
-        track.enabled = isMuted;
+        track.enabled = !track.enabled;
       });
-      isMuted = !isMuted;
-      document.getElementById("muteAudio").innerHTML = isMuted
-        ? '<i class="fas fa-microphone-slash"></i>'
-        : '<i class="fas fa-microphone"></i>';
+      const icon = localStream.getAudioTracks()[0].enabled
+        ? '<i class="fas fa-microphone"></i>'
+        : '<i class="fas fa-microphone-slash"></i>';
+      document.getElementById("muteAudio").innerHTML = icon;
     }
   };
 
   document.getElementById("toggleVideo").onclick = () => {
     if (localStream) {
       localStream.getVideoTracks().forEach(track => {
-        track.enabled = isCameraOff;
+        track.enabled = !track.enabled;
       });
-      isCameraOff = !isCameraOff;
-      document.getElementById("toggleVideo").innerHTML = isCameraOff
-        ? '<i class="fas fa-video-slash"></i>'
-        : '<i class="fas fa-video"></i>';
+      const icon = localStream.getVideoTracks()[0].enabled
+        ? '<i class="fas fa-video"></i>'
+        : '<i class="fas fa-video-slash"></i>';
+      document.getElementById("toggleVideo").innerHTML = icon;
     }
   };
 });
