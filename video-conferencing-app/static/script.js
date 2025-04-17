@@ -62,7 +62,7 @@ async function openUserMedia() {
 
 async function startVideoCall() {
   try {
-    console.log("Starting video call...");
+    const inputRoomId = prompt("Enter Room ID (leave blank to create new):");
 
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -71,21 +71,21 @@ async function startVideoCall() {
 
     peerConnection = new RTCPeerConnection(iceServers);
     remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
 
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
     });
 
-    peerConnection.ontrack = (event) => {
+    peerConnection.ontrack = event => {
       event.streams[0].getTracks().forEach(track => {
         remoteStream.addTrack(track);
       });
-      remoteVideo.srcObject = remoteStream;
-      console.log("Remote track added.");
+      console.log("Remote stream received.");
     };
 
     peerConnection.onicecandidate = event => {
-      if (event.candidate) {
+      if (event.candidate && roomId) {
         db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
         console.log("Caller ICE candidate sent.");
       }
@@ -105,14 +105,23 @@ async function startVideoCall() {
       }
     };
 
-    const roomRef = await db.collection("rooms").add(roomWithOffer);
-    roomId = roomRef.id;
-    window.currentRoom = roomId;
+    let roomRef;
+    if (inputRoomId) {
+      // Join an existing room
+      roomId = inputRoomId;
+      roomRef = db.collection("rooms").doc(roomId);
+      await roomRef.set(roomWithOffer, { merge: true }); // merge so we don't wipe callee data
+    } else {
+      // Create a new room
+      roomRef = await db.collection("rooms").add(roomWithOffer);
+      roomId = roomRef.id;
+    }
 
-    console.log(`Room created with ID: ${roomId}`);
+    window.currentRoom = roomId;
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
+    // Wait for callee to join and set answer
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !peerConnection.currentRemoteDescription) {
@@ -136,6 +145,7 @@ async function startVideoCall() {
     alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
+
 
 async function joinRoom(roomIdInput) {
   try {
