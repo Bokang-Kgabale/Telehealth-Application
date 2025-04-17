@@ -62,8 +62,6 @@ async function openUserMedia() {
 
 async function startVideoCall() {
   try {
-    const inputRoomId = prompt("Enter Room ID (leave blank to create new):");
-
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.srcObject = localStream;
@@ -106,8 +104,7 @@ async function startVideoCall() {
     };
 
     let roomRef;
-    if (inputRoomId) {
-      roomId = inputRoomId;
+    if (roomId) {
       roomRef = db.collection("rooms").doc(roomId);
       await roomRef.set(roomWithOffer, { merge: true });
     } else {
@@ -146,8 +143,6 @@ async function startVideoCall() {
     alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
-
-
 
 async function joinRoom(roomIdInput) {
   try {
