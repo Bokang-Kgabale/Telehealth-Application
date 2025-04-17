@@ -29,23 +29,24 @@ const iceServers = {
 
 function initializeVideoCall() {
   console.log("Video call initialized");
-}
 
-// Attempt to access built-in camera
-async function getBuiltInCamera() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const builtInCamera = devices.find(device =>
-    device.kind === 'videoinput' && device.label.toLowerCase().includes('built-in')
-  );
-  return builtInCamera ? { deviceId: builtInCamera.deviceId } : true;
+  // Automatically attempt to access user media on load
+  navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
+    if (permissionStatus.state === "granted") {
+      openUserMedia(); // auto-initialize media if permission granted
+    } else {
+      console.log("Camera permission not yet granted. Waiting for user interaction.");
+    }
+  }).catch(err => {
+    console.warn("Permission API not supported or error:", err);
+    // Fallback: Try opening user media (will prompt user)
+    openUserMedia();
+  });
 }
 
 // Request user media
 async function openUserMedia() {
   try {
-    const permissions = await navigator.permissions.query({ name: "camera" });
-    console.log("Camera permissions:", permissions.state);
-
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
 
@@ -74,14 +75,11 @@ async function startVideoCall() {
     remoteStream = new MediaStream();
     remoteVideo.srcObject = remoteStream;
 
-    // Add local stream tracks to peer connection first
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
     });
 
     peerConnection.ontrack = (event) => {
-      console.log('Remote track received:', event.streams[0]);
-      const remoteVideo = document.getElementById('remoteVideo');
       if (remoteVideo.srcObject !== event.streams[0]) {
         remoteVideo.srcObject = event.streams[0];
       }
@@ -98,7 +96,6 @@ async function startVideoCall() {
       console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
-    // Create offer and set local description after adding tracks
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
