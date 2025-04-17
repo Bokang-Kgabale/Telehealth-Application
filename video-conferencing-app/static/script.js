@@ -30,7 +30,7 @@ const iceServers = {
 function initializeVideoCall() {
   console.log("Video call initialized");
 
-  navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
+  navigator.permissions?.query({ name: "camera" }).then(permissionStatus => {
     if (permissionStatus.state === "granted") {
       openUserMedia();
     } else {
@@ -107,12 +107,10 @@ async function startVideoCall() {
 
     let roomRef;
     if (inputRoomId) {
-      // Join an existing room
       roomId = inputRoomId;
       roomRef = db.collection("rooms").doc(roomId);
-      await roomRef.set(roomWithOffer, { merge: true }); // merge so we don't wipe callee data
+      await roomRef.set(roomWithOffer, { merge: true });
     } else {
-      // Create a new room
       roomRef = await db.collection("rooms").add(roomWithOffer);
       roomId = roomRef.id;
     }
@@ -121,7 +119,6 @@ async function startVideoCall() {
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
-    // Wait for callee to join and set answer
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !peerConnection.currentRemoteDescription) {
