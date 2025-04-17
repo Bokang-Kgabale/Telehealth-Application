@@ -30,7 +30,7 @@ const iceServers = {
 function initializeVideoCall() {
   console.log("Video call initialized");
 
-  navigator.permissions?.query({ name: "camera" }).then(permissionStatus => {
+  navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
     if (permissionStatus.state === "granted") {
       openUserMedia();
     } else {
@@ -62,8 +62,6 @@ async function openUserMedia() {
 
 async function startVideoCall() {
   try {
-    const inputRoomId = prompt("Enter Room ID (leave blank to create new):");
-
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.srcObject = localStream;
@@ -84,8 +82,64 @@ async function startVideoCall() {
       console.log("Remote stream received.");
     };
 
+    const inputRoomId = prompt("Enter Room ID (leave blank to create new):");
+
+    let roomRef;
+    if (inputRoomId) {
+      roomId = inputRoomId;
+      roomRef = db.collection("rooms").doc(roomId);
+      const roomSnapshot = await roomRef.get();
+
+      if (roomSnapshot.exists && roomSnapshot.data().offer) {
+        const roomData = roomSnapshot.data();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(roomData.offer));
+        console.log("Remote description set with offer.");
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await roomRef.update({ answer });
+
+        console.log("Answer created and stored.");
+
+        roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === "added") {
+              const candidate = new RTCIceCandidate(change.doc.data());
+              peerConnection.addIceCandidate(candidate);
+              console.log("Added callee candidate.");
+            }
+          });
+        });
+      }
+    } else {
+      roomRef = await db.collection("rooms").add({});
+      roomId = roomRef.id;
+      console.log("New room created with ID:", roomId);
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      const roomWithOffer = {
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp,
+        },
+      };
+      await roomRef.set(roomWithOffer);
+
+      roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === "added") {
+            const candidate = new RTCIceCandidate(change.doc.data());
+            peerConnection.addIceCandidate(candidate);
+            console.log("Added callee candidate.");
+          }
+        });
+      });
+    }
+
     peerConnection.onicecandidate = event => {
-      if (event.candidate && roomId) {
+      if (event.candidate) {
         db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
         console.log("Caller ICE candidate sent.");
       }
@@ -95,47 +149,8 @@ async function startVideoCall() {
       console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    const roomWithOffer = {
-      offer: {
-        type: offer.type,
-        sdp: offer.sdp
-      }
-    };
-
-    let roomRef;
-    if (inputRoomId) {
-      roomId = inputRoomId;
-      roomRef = db.collection("rooms").doc(roomId);
-      await roomRef.set(roomWithOffer, { merge: true });
-    } else {
-      roomRef = await db.collection("rooms").add(roomWithOffer);
-      roomId = roomRef.id;
-    }
-
-    window.currentRoom = roomId;
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
-
-    roomRef.onSnapshot(async snapshot => {
-      const data = snapshot.data();
-      if (data?.answer && !peerConnection.currentRemoteDescription) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        console.log("Remote description set with answer.");
-      }
-    });
-
-    roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === "added") {
-          const candidate = new RTCIceCandidate(change.doc.data());
-          peerConnection.addIceCandidate(candidate);
-          console.log("Added callee candidate.");
-        }
-      });
-    });
 
   } catch (error) {
     console.error("Error starting video call:", error);
