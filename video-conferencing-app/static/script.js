@@ -30,16 +30,14 @@ const iceServers = {
 function initializeVideoCall() {
   console.log("Video call initialized");
 
-  // Automatically attempt to access user media on load
   navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
     if (permissionStatus.state === "granted") {
-      openUserMedia(); // auto-initialize media if permission granted
+      openUserMedia();
     } else {
       console.log("Camera permission not yet granted. Waiting for user interaction.");
     }
   }).catch(err => {
     console.warn("Permission API not supported or error:", err);
-    // Fallback: Try opening user media (will prompt user)
     openUserMedia();
   });
 }
@@ -73,16 +71,17 @@ async function startVideoCall() {
 
     peerConnection = new RTCPeerConnection(iceServers);
     remoteStream = new MediaStream();
-    remoteVideo.srcObject = remoteStream;
 
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
     });
 
     peerConnection.ontrack = (event) => {
-      if (remoteVideo.srcObject !== event.streams[0]) {
-        remoteVideo.srcObject = event.streams[0];
-      }
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+      remoteVideo.srcObject = remoteStream;
+      console.log("Remote track added.");
     };
 
     peerConnection.onicecandidate = event => {
@@ -138,9 +137,9 @@ async function startVideoCall() {
   }
 }
 
-async function joinRoom(roomId) {
+async function joinRoom(roomIdInput) {
   try {
-    const roomRef = db.collection("rooms").doc(roomId);
+    const roomRef = db.collection("rooms").doc(roomIdInput);
     const roomSnapshot = await roomRef.get();
 
     if (!roomSnapshot.exists) {
@@ -148,8 +147,9 @@ async function joinRoom(roomId) {
       return;
     }
 
-    console.log(`Joining room: ${roomId}`);
-    document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
+    console.log(`Joining room: ${roomIdInput}`);
+    document.getElementById("currentRoom").innerText = `Room ID: ${roomIdInput}`;
+    roomId = roomIdInput;
 
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -158,7 +158,6 @@ async function joinRoom(roomId) {
 
     peerConnection = new RTCPeerConnection(iceServers);
     remoteStream = new MediaStream();
-    remoteVideo.srcObject = remoteStream;
 
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
@@ -168,7 +167,8 @@ async function joinRoom(roomId) {
       event.streams[0].getTracks().forEach(track => {
         remoteStream.addTrack(track);
       });
-      console.log("Remote stream received.");
+      remoteVideo.srcObject = remoteStream;
+      console.log("Remote track added.");
     };
 
     peerConnection.onicecandidate = event => {
@@ -206,6 +206,8 @@ async function joinRoom(roomId) {
         }
       });
     });
+
+    document.getElementById("hangUp").disabled = false;
 
   } catch (error) {
     console.error("Error joining room:", error);
