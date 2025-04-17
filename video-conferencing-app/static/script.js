@@ -24,7 +24,14 @@ const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
 
 const iceServers = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    {
+      urls: "turn:relay.metered.ca:443",
+      username: "openai",
+      credential: "openai123"
+    }
+  ]
 };
 
 function initializeVideoCall() {
