@@ -1,4 +1,4 @@
-// Firebase configuration
+// Firebase configuration (unchanged)
 fetch('/firebase-config')
   .then(res => res.json())
   .then(config => {
@@ -12,19 +12,21 @@ fetch('/firebase-config')
     alert("Failed to load Firebase configuration.");
   });
 
-// Global variables
+// Global variables (added candidate queues)
 let db;
 let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
-let pendingCalleeCandidates = []; // Added for ICE candidate queueing
-let pendingCallerCandidates = []; // Added for ICE candidate queueing
+let pendingCalleeCandidates = [];
+let pendingCallerCandidates = [];
 
+// DOM elements (unchanged)
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
 
+// ICE servers (unchanged)
 const iceServers = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -36,9 +38,9 @@ const iceServers = {
   ]
 };
 
+// initializeVideoCall (unchanged)
 function initializeVideoCall() {
   console.log("Video call initialized");
-
   navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
     if (permissionStatus.state === "granted") {
       openUserMedia();
@@ -51,7 +53,7 @@ function initializeVideoCall() {
   });
 }
 
-// Request user media
+// openUserMedia (unchanged)
 async function openUserMedia() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -69,6 +71,7 @@ async function openUserMedia() {
   }
 }
 
+// MODIFIED: startVideoCall with candidate queueing
 async function startVideoCall() {
   try {
     if (!localStream) {
@@ -130,14 +133,12 @@ async function startVideoCall() {
       if (data?.answer && !peerConnection.currentRemoteDescription) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         console.log("Remote description set with answer.");
-        // Process queued candidates after setting remote description
-        pendingCalleeCandidates.forEach(async candidate => {
-          try {
-            await peerConnection.addIceCandidate(candidate);
-            console.log("Added queued callee candidate.");
-          } catch (e) {
-            console.error("Error adding queued callee candidate:", e);
-          }
+        
+        // Process any queued candidates
+        pendingCalleeCandidates.forEach(candidate => {
+          peerConnection.addIceCandidate(candidate)
+            .then(() => console.log("Added queued callee candidate."))
+            .catch(e => console.error("Error adding queued candidate:", e));
         });
         pendingCalleeCandidates = [];
       }
@@ -148,11 +149,11 @@ async function startVideoCall() {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           if (peerConnection.currentRemoteDescription) {
-            peerConnection.addIceCandidate(candidate).then(() => {
-              console.log("Added callee candidate.");
-            }).catch(e => console.warn("Error adding callee candidate:", e));
+            peerConnection.addIceCandidate(candidate)
+              .then(() => console.log("Added callee candidate."))
+              .catch(e => console.warn("Error adding callee candidate:", e));
           } else {
-            console.log("Queuing callee candidate until remote description is set.");
+            console.log("Queuing callee candidate (will add when ready)");
             pendingCalleeCandidates.push(candidate);
           }
         }
@@ -165,6 +166,7 @@ async function startVideoCall() {
   }
 }
 
+// MODIFIED: joinRoom with candidate queueing
 async function joinRoom(roomIdInput) {
   try {
     const roomRef = db.collection("rooms").doc(roomIdInput);
@@ -215,17 +217,6 @@ async function joinRoom(roomIdInput) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
-    // Process queued candidates after setting remote description
-    pendingCallerCandidates.forEach(async candidate => {
-      try {
-        await peerConnection.addIceCandidate(candidate);
-        console.log("Added queued caller candidate.");
-      } catch (e) {
-        console.error("Error adding queued caller candidate:", e);
-      }
-    });
-    pendingCallerCandidates = [];
-
     const roomWithAnswer = {
       answer: {
         type: answer.type,
@@ -236,16 +227,24 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
 
+    // Process any queued candidates
+    pendingCallerCandidates.forEach(candidate => {
+      peerConnection.addIceCandidate(candidate)
+        .then(() => console.log("Added queued caller candidate."))
+        .catch(e => console.error("Error adding queued candidate:", e));
+    });
+    pendingCallerCandidates = [];
+
     roomRef.collection("callerCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           if (peerConnection.currentRemoteDescription) {
-            peerConnection.addIceCandidate(candidate).then(() => {
-              console.log("Added caller candidate.");
-            }).catch(e => console.warn("Error adding caller candidate:", e));
+            peerConnection.addIceCandidate(candidate)
+              .then(() => console.log("Added caller candidate."))
+              .catch(e => console.warn("Error adding caller candidate:", e));
           } else {
-            console.log("Queuing caller candidate until remote description is set.");
+            console.log("Queuing caller candidate (will add when ready)");
             pendingCallerCandidates.push(candidate);
           }
         }
@@ -260,6 +259,7 @@ async function joinRoom(roomIdInput) {
   }
 }
 
+// MODIFIED: hangUp with queue cleanup
 async function hangUp() {
   console.log("Hanging up the call...");
 
@@ -278,7 +278,7 @@ async function hangUp() {
     console.log("Peer connection closed.");
   }
 
-  // Clear pending candidates queues
+  // Clear pending candidates
   pendingCalleeCandidates = [];
   pendingCallerCandidates = [];
 
