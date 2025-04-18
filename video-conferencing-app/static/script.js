@@ -76,65 +76,70 @@ async function startVideoCall() {
       localVideo.srcObject = localStream;
     }
 
-    // Initialize peer connection if not exists
-    if (!peerConnection) {
-      peerConnection = new RTCPeerConnection(iceServers);
-      remoteStream = new MediaStream();
-      remoteVideo.srcObject = remoteStream;
-
-      // Add tracks and set up event handlers
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-
-      peerConnection.ontrack = event => {
-        event.streams[0].getTracks().forEach(track => {
-          remoteStream.addTrack(track);
-        });
-        console.log("Remote stream received.");
-      };
-
-      peerConnection.onicecandidate = event => {
-        if (event.candidate && roomId) {
-          db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON())
-            .then(() => console.log("Caller ICE candidate sent."))
-            .catch(e => console.error("Error sending ICE candidate:", e));
-        }
-      };
-
-      peerConnection.oniceconnectionstatechange = () => {
-        console.log("ICE connection state:", peerConnection.iceConnectionState);
-      };
-    }
-
-    // Create and set offer in one go
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // Create or reuse room
-    let roomRef;
-    if (roomId) {
-      roomRef = db.collection("rooms").doc(roomId);
-      await roomRef.update({
-        offer: {
-          type: offer.type,
-          sdp: offer.sdp
-        }
-      });
-    } else {
-      roomRef = await db.collection("rooms").add({
-        offer: {
-          type: offer.type,
-          sdp: offer.sdp
-        }
-      });
-      roomId = roomRef.id;
-    }
-
-    // UI updates
+    // Create room FIRST to get roomId immediately
+    const roomRef = await db.collection("rooms").add({});
+    roomId = roomRef.id;
     window.currentRoom = roomId;
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
+
+    // Initialize peer connection AFTER room is created
+    peerConnection = new RTCPeerConnection(iceServers);
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
+    // Add tracks
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+
+    // Set up event handlers
+    peerConnection.ontrack = event => {
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+      console.log("Remote stream received.");
+    };
+
+    // MODIFIED: ICE candidate handler with queue for early candidates
+    const earlyCandidates = [];
+    peerConnection.onicecandidate = event => {
+      if (event.candidate) {
+        if (roomId) {
+          // Process both new and queued candidates
+          const processCandidate = (candidate) => {
+            db.collection("rooms").doc(roomId).collection("callerCandidates").add(candidate.toJSON())
+              .then(() => console.log("Caller ICE candidate sent."))
+              .catch(e => console.error("Error sending candidate:", e));
+          };
+          
+          // Process any queued candidates first
+          while (earlyCandidates.length) {
+            processCandidate(earlyCandidates.shift());
+          }
+          // Process current candidate
+          processCandidate(event.candidate);
+        } else {
+          // Queue candidates if roomId isn't ready yet
+          earlyCandidates.push(event.candidate);
+          console.log("Queuing ICE candidate until room is ready");
+        }
+      }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log("ICE connection state:", peerConnection.iceConnectionState);
+    };
+
+    // Create and send offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    await roomRef.update({
+      offer: {
+        type: offer.type,
+        sdp: offer.sdp
+      }
+    });
 
     // Set up answer listener
     roomRef.onSnapshot(async snapshot => {
