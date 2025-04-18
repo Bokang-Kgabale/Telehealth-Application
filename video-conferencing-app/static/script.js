@@ -1,4 +1,4 @@
-// Firebase configuration (unchanged)
+// Firebase configuration
 fetch('/firebase-config')
   .then(res => res.json())
   .then(config => {
@@ -12,21 +12,19 @@ fetch('/firebase-config')
     alert("Failed to load Firebase configuration.");
   });
 
-// Global variables (added candidate queues)
+// Global variables
 let db;
 let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
-let pendingCalleeCandidates = [];
-let pendingCallerCandidates = [];
+let pendingCalleeCandidates = []; // Added for ICE candidate queueing
+let pendingCallerCandidates = []; // Added for ICE candidate queueing
 
-// DOM elements (unchanged)
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
 
-// ICE servers (unchanged)
 const iceServers = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -38,9 +36,9 @@ const iceServers = {
   ]
 };
 
-// initializeVideoCall (unchanged)
 function initializeVideoCall() {
   console.log("Video call initialized");
+
   navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
     if (permissionStatus.state === "granted") {
       openUserMedia();
@@ -53,7 +51,7 @@ function initializeVideoCall() {
   });
 }
 
-// openUserMedia (unchanged)
+// Request user media
 async function openUserMedia() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -71,7 +69,6 @@ async function openUserMedia() {
   }
 }
 
-// MODIFIED: startVideoCall with candidate queueing
 async function startVideoCall() {
   try {
     if (!localStream) {
@@ -79,83 +76,83 @@ async function startVideoCall() {
       localVideo.srcObject = localStream;
     }
 
-    peerConnection = new RTCPeerConnection(iceServers);
-    remoteStream = new MediaStream();
-    remoteVideo.srcObject = remoteStream;
+    // Initialize peer connection if not exists
+    if (!peerConnection) {
+      peerConnection = new RTCPeerConnection(iceServers);
+      remoteStream = new MediaStream();
+      remoteVideo.srcObject = remoteStream;
 
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
-    });
-
-    peerConnection.ontrack = event => {
-      event.streams[0].getTracks().forEach(track => {
-        remoteStream.addTrack(track);
+      // Add tracks and set up event handlers
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
       });
-      console.log("Remote stream received.");
-    };
 
-    peerConnection.onicecandidate = event => {
-      if (event.candidate && roomId) {
-        db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
-        console.log("Caller ICE candidate sent.");
-      }
-    };
+      peerConnection.ontrack = event => {
+        event.streams[0].getTracks().forEach(track => {
+          remoteStream.addTrack(track);
+        });
+        console.log("Remote stream received.");
+      };
 
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log("ICE connection state:", peerConnection.iceConnectionState);
-    };
+      peerConnection.onicecandidate = event => {
+        if (event.candidate && roomId) {
+          db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON())
+            .then(() => console.log("Caller ICE candidate sent."))
+            .catch(e => console.error("Error sending ICE candidate:", e));
+        }
+      };
 
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log("ICE connection state:", peerConnection.iceConnectionState);
+      };
+    }
+
+    // Create and set offer in one go
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    const roomWithOffer = {
-      offer: {
-        type: offer.type,
-        sdp: offer.sdp
-      }
-    };
-
+    // Create or reuse room
     let roomRef;
     if (roomId) {
       roomRef = db.collection("rooms").doc(roomId);
-      await roomRef.set(roomWithOffer, { merge: true });
+      await roomRef.update({
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
+        }
+      });
     } else {
-      roomRef = await db.collection("rooms").add(roomWithOffer);
+      roomRef = await db.collection("rooms").add({
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
+        }
+      });
       roomId = roomRef.id;
     }
 
+    // UI updates
     window.currentRoom = roomId;
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
+    // Set up answer listener
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !peerConnection.currentRemoteDescription) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         console.log("Remote description set with answer.");
-        
-        // Process any queued candidates
-        pendingCalleeCandidates.forEach(candidate => {
-          peerConnection.addIceCandidate(candidate)
-            .then(() => console.log("Added queued callee candidate."))
-            .catch(e => console.error("Error adding queued candidate:", e));
-        });
-        pendingCalleeCandidates = [];
       }
     });
 
+    // Set up candidate listener
     roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
-          if (peerConnection.currentRemoteDescription) {
-            peerConnection.addIceCandidate(candidate)
-              .then(() => console.log("Added callee candidate."))
-              .catch(e => console.warn("Error adding callee candidate:", e));
-          } else {
-            console.log("Queuing callee candidate (will add when ready)");
-            pendingCalleeCandidates.push(candidate);
-          }
+          peerConnection.addIceCandidate(candidate)
+            .then(() => console.log("Added callee candidate."))
+            .catch(e => console.warn("Error adding callee candidate:", e));
         }
       });
     });
@@ -166,7 +163,6 @@ async function startVideoCall() {
   }
 }
 
-// MODIFIED: joinRoom with candidate queueing
 async function joinRoom(roomIdInput) {
   try {
     const roomRef = db.collection("rooms").doc(roomIdInput);
@@ -217,6 +213,17 @@ async function joinRoom(roomIdInput) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
+    // Process queued candidates after setting remote description
+    pendingCallerCandidates.forEach(async candidate => {
+      try {
+        await peerConnection.addIceCandidate(candidate);
+        console.log("Added queued caller candidate.");
+      } catch (e) {
+        console.error("Error adding queued caller candidate:", e);
+      }
+    });
+    pendingCallerCandidates = [];
+
     const roomWithAnswer = {
       answer: {
         type: answer.type,
@@ -227,24 +234,16 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
 
-    // Process any queued candidates
-    pendingCallerCandidates.forEach(candidate => {
-      peerConnection.addIceCandidate(candidate)
-        .then(() => console.log("Added queued caller candidate."))
-        .catch(e => console.error("Error adding queued candidate:", e));
-    });
-    pendingCallerCandidates = [];
-
     roomRef.collection("callerCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           if (peerConnection.currentRemoteDescription) {
-            peerConnection.addIceCandidate(candidate)
-              .then(() => console.log("Added caller candidate."))
-              .catch(e => console.warn("Error adding caller candidate:", e));
+            peerConnection.addIceCandidate(candidate).then(() => {
+              console.log("Added caller candidate.");
+            }).catch(e => console.warn("Error adding caller candidate:", e));
           } else {
-            console.log("Queuing caller candidate (will add when ready)");
+            console.log("Queuing caller candidate until remote description is set.");
             pendingCallerCandidates.push(candidate);
           }
         }
@@ -259,7 +258,6 @@ async function joinRoom(roomIdInput) {
   }
 }
 
-// MODIFIED: hangUp with queue cleanup
 async function hangUp() {
   console.log("Hanging up the call...");
 
@@ -278,7 +276,7 @@ async function hangUp() {
     console.log("Peer connection closed.");
   }
 
-  // Clear pending candidates
+  // Clear pending candidates queues
   pendingCalleeCandidates = [];
   pendingCallerCandidates = [];
 
