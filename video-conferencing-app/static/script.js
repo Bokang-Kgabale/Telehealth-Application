@@ -35,6 +35,9 @@ const iceServers = {
   ]
 };
 
+// IMPORTANT: Ensure the TURN server credentials above are valid and reachable from your network.
+// If you experience ICE connection failures, verify your TURN server or try removing it to test with only STUN server.
+
 function initializeVideoCall() {
   console.log("Video call initialized");
 
