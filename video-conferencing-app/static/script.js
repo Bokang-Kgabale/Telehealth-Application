@@ -18,8 +18,6 @@ let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
-let pendingCalleeCandidates = [];
-let pendingCallerCandidates = [];
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -51,6 +49,7 @@ function initializeVideoCall() {
   });
 }
 
+// Request user media
 async function openUserMedia() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -90,14 +89,10 @@ async function startVideoCall() {
       console.log("Remote stream received.");
     };
 
-    const pendingCandidates = [];
-    let remoteDescriptionSet = false;
-
     peerConnection.onicecandidate = event => {
       if (event.candidate && roomId) {
-        db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON())
-          .then(() => console.log("Caller ICE candidate sent."))
-          .catch(e => console.error("Error sending candidate:", e));
+        db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
+        console.log("Caller ICE candidate sent.");
       }
     };
 
@@ -105,41 +100,45 @@ async function startVideoCall() {
       console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
-    const roomRef = await db.collection("rooms").add({});
-    roomId = roomRef.id;
-    window.currentRoom = roomId;
-    document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
-    document.getElementById("hangUp").disabled = false;
-
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    await roomRef.update({
+
+    const roomWithOffer = {
       offer: {
         type: offer.type,
         sdp: offer.sdp
       }
-    });
+    };
 
-    const answerListener = roomRef.onSnapshot(async snapshot => {
+    let roomRef;
+    if (roomId) {
+      roomRef = db.collection("rooms").doc(roomId);
+      await roomRef.set(roomWithOffer, { merge: true });
+    } else {
+      roomRef = await db.collection("rooms").add(roomWithOffer);
+      roomId = roomRef.id;
+    }
+
+    window.currentRoom = roomId;
+    document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
+    document.getElementById("hangUp").disabled = false;
+
+    let remoteDescriptionSet = false; // flag to track if remote description is set
+
+    roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
-      if (data?.answer && !remoteDescriptionSet) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-          console.log("Remote description set with answer.");
-          remoteDescriptionSet = true;
-          
-          while (pendingCandidates.length > 0) {
-            const candidate = pendingCandidates.shift();
-            try {
-              await peerConnection.addIceCandidate(candidate);
-              console.log("Added queued candidate.");
-            } catch (e) {
-              console.error("Error adding queued candidate:", e);
-            }
+      if (data?.answer) {
+        console.log("Signaling state before setRemoteDescription:", peerConnection.signalingState);
+        if (!remoteDescriptionSet && (peerConnection.signalingState === "have-local-offer" || peerConnection.signalingState === "stable")) {
+          try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            remoteDescriptionSet = true;
+            console.log("Remote description set with answer.");
+          } catch (error) {
+            console.error("Error setting remote description:", error);
           }
-          answerListener();
-        } catch (error) {
-          console.error("Error setting remote description:", error);
+        } else {
+          console.log("Skipping setRemoteDescription due to signaling state or already set remote description.");
         }
       }
     });
@@ -149,12 +148,13 @@ async function startVideoCall() {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           if (remoteDescriptionSet) {
-            peerConnection.addIceCandidate(candidate)
-              .then(() => console.log("Added callee candidate."))
-              .catch(e => console.warn("Error adding callee candidate:", e));
+            peerConnection.addIceCandidate(candidate).then(() => {
+              console.log("Added callee candidate.");
+            }).catch(e => {
+              console.error("Error adding callee candidate:", e);
+            });
           } else {
-            console.log("Queuing candidate until remote description is set");
-            pendingCandidates.push(candidate);
+            console.log("Remote description not set, skipping ICE candidate.");
           }
         }
       });
@@ -200,9 +200,6 @@ async function joinRoom(roomIdInput) {
       console.log("Remote track added.");
     };
 
-    const pendingCandidates = [];
-    let remoteDescriptionSet = false;
-
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
         roomRef.collection("calleeCandidates").add(event.candidate.toJSON());
@@ -216,20 +213,8 @@ async function joinRoom(roomIdInput) {
 
     const offer = roomSnapshot.data().offer;
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    remoteDescriptionSet = true;
-    
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-
-    while (pendingCandidates.length > 0) {
-      const candidate = pendingCandidates.shift();
-      try {
-        await peerConnection.addIceCandidate(candidate);
-        console.log("Added queued candidate.");
-      } catch (e) {
-        console.error("Error adding queued candidate:", e);
-      }
-    }
 
     const roomWithAnswer = {
       answer: {
@@ -241,18 +226,15 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
 
-    const callerCandidatesListener = roomRef.collection("callerCandidates").onSnapshot(snapshot => {
+    // Set flag to true after setting remote description
+    remoteDescriptionSet = true;
+
+    roomRef.collection("callerCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
-          if (remoteDescriptionSet) {
-            peerConnection.addIceCandidate(candidate)
-              .then(() => console.log("Added caller candidate."))
-              .catch(e => console.warn("Error adding caller candidate:", e));
-          } else {
-            console.log("Queuing caller candidate");
-            pendingCandidates.push(candidate);
-          }
+          peerConnection.addIceCandidate(candidate);
+          console.log("Added caller candidate.");
         }
       });
     });
@@ -283,9 +265,6 @@ async function hangUp() {
     console.log("Peer connection closed.");
   }
 
-  pendingCalleeCandidates = [];
-  pendingCallerCandidates = [];
-
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
 
@@ -300,6 +279,7 @@ async function hangUp() {
   location.reload();
 }
 
+// Event listeners
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("openMedia").onclick = openUserMedia;
   document.getElementById("startCall").onclick = startVideoCall;
