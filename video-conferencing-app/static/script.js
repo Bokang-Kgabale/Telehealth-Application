@@ -18,8 +18,8 @@ let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
-let pendingCalleeCandidates = []; // Added for ICE candidate queueing
-let pendingCallerCandidates = []; // Added for ICE candidate queueing
+let pendingCalleeCandidates = [];
+let pendingCallerCandidates = [];
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -51,7 +51,6 @@ function initializeVideoCall() {
   });
 }
 
-// Request user media
 async function openUserMedia() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -76,17 +75,14 @@ async function startVideoCall() {
       localVideo.srcObject = localStream;
     }
 
-    // Create peer connection first
     peerConnection = new RTCPeerConnection(iceServers);
     remoteStream = new MediaStream();
     remoteVideo.srcObject = remoteStream;
 
-    // Add tracks
     localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream);
     });
 
-    // Event handlers
     peerConnection.ontrack = event => {
       event.streams[0].getTracks().forEach(track => {
         remoteStream.addTrack(track);
@@ -94,7 +90,6 @@ async function startVideoCall() {
       console.log("Remote stream received.");
     };
 
-    // ICE candidate handling
     const pendingCandidates = [];
     let remoteDescriptionSet = false;
 
@@ -110,14 +105,12 @@ async function startVideoCall() {
       console.log("ICE connection state:", peerConnection.iceConnectionState);
     };
 
-    // Create room
     const roomRef = await db.collection("rooms").add({});
     roomId = roomRef.id;
     window.currentRoom = roomId;
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
-    // Create and send offer
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     await roomRef.update({
@@ -127,8 +120,7 @@ async function startVideoCall() {
       }
     });
 
-    // Answer listener with proper state management
-    roomRef.onSnapshot(async snapshot => {
+    const answerListener = roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !remoteDescriptionSet) {
         try {
@@ -136,8 +128,8 @@ async function startVideoCall() {
           console.log("Remote description set with answer.");
           remoteDescriptionSet = true;
           
-          // Process any queued candidates
-          for (const candidate of pendingCandidates) {
+          while (pendingCandidates.length > 0) {
+            const candidate = pendingCandidates.shift();
             try {
               await peerConnection.addIceCandidate(candidate);
               console.log("Added queued candidate.");
@@ -145,13 +137,13 @@ async function startVideoCall() {
               console.error("Error adding queued candidate:", e);
             }
           }
+          answerListener();
         } catch (error) {
           console.error("Error setting remote description:", error);
         }
       }
     });
 
-    // Callee candidates listener with queueing
     roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
@@ -208,6 +200,9 @@ async function joinRoom(roomIdInput) {
       console.log("Remote track added.");
     };
 
+    const pendingCandidates = [];
+    let remoteDescriptionSet = false;
+
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
         roomRef.collection("calleeCandidates").add(event.candidate.toJSON());
@@ -221,19 +216,20 @@ async function joinRoom(roomIdInput) {
 
     const offer = roomSnapshot.data().offer;
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    remoteDescriptionSet = true;
+    
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
-    // Process queued candidates after setting remote description
-    pendingCallerCandidates.forEach(async candidate => {
+    while (pendingCandidates.length > 0) {
+      const candidate = pendingCandidates.shift();
       try {
         await peerConnection.addIceCandidate(candidate);
-        console.log("Added queued caller candidate.");
+        console.log("Added queued candidate.");
       } catch (e) {
-        console.error("Error adding queued caller candidate:", e);
+        console.error("Error adding queued candidate:", e);
       }
-    });
-    pendingCallerCandidates = [];
+    }
 
     const roomWithAnswer = {
       answer: {
@@ -245,17 +241,17 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
 
-    roomRef.collection("callerCandidates").onSnapshot(snapshot => {
+    const callerCandidatesListener = roomRef.collection("callerCandidates").onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
-          if (peerConnection.currentRemoteDescription) {
-            peerConnection.addIceCandidate(candidate).then(() => {
-              console.log("Added caller candidate.");
-            }).catch(e => console.warn("Error adding caller candidate:", e));
+          if (remoteDescriptionSet) {
+            peerConnection.addIceCandidate(candidate)
+              .then(() => console.log("Added caller candidate."))
+              .catch(e => console.warn("Error adding caller candidate:", e));
           } else {
-            console.log("Queuing caller candidate until remote description is set.");
-            pendingCallerCandidates.push(candidate);
+            console.log("Queuing caller candidate");
+            pendingCandidates.push(candidate);
           }
         }
       });
@@ -287,7 +283,6 @@ async function hangUp() {
     console.log("Peer connection closed.");
   }
 
-  // Clear pending candidates queues
   pendingCalleeCandidates = [];
   pendingCallerCandidates = [];
 
@@ -305,7 +300,6 @@ async function hangUp() {
   location.reload();
 }
 
-// Event listeners (unchanged)
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("openMedia").onclick = openUserMedia;
   document.getElementById("startCall").onclick = startVideoCall;
