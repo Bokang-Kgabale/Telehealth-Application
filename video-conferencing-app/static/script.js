@@ -92,13 +92,19 @@ async function startVideoCall() {
 
     peerConnection.onicecandidate = event => {
       if (event.candidate && roomId) {
+        console.log("New ICE candidate generated:", event.candidate);
         db.collection("rooms").doc(roomId).collection("callerCandidates").add(event.candidate.toJSON());
         console.log("Caller ICE candidate sent.");
+      } else {
+        console.log("ICE candidate event with no candidate or no roomId:", event);
       }
     };
 
     peerConnection.oniceconnectionstatechange = () => {
-      console.log("ICE connection state:", peerConnection.iceConnectionState);
+      console.log("ICE connection state changed to:", peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "disconnected") {
+        console.warn("ICE connection state is", peerConnection.iceConnectionState, "- check network and TURN server.");
+      }
     };
 
     const offer = await peerConnection.createOffer();
@@ -204,13 +210,19 @@ async function joinRoom(roomIdInput) {
 
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
+        console.log("New ICE candidate generated:", event.candidate);
         roomRef.collection("calleeCandidates").add(event.candidate.toJSON());
         console.log("Callee ICE candidate sent.");
+      } else {
+        console.log("ICE candidate event with no candidate:", event);
       }
     };
 
     peerConnection.oniceconnectionstatechange = () => {
-      console.log("ICE connection state:", peerConnection.iceConnectionState);
+      console.log("ICE connection state changed to:", peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "disconnected") {
+        console.warn("ICE connection state is", peerConnection.iceConnectionState, "- check network and TURN server.");
+      }
     };
 
     const offer = roomSnapshot.data().offer;
