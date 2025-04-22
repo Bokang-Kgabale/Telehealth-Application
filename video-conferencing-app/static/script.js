@@ -102,7 +102,11 @@ async function startVideoCall() {
     };
 
     // ICE candidate handling with queue
-    const earlyCandidates = [];
+    const pendingCandidates = {
+      local: [],
+      remote: []
+    };
+
     peerConnection.onicecandidate = event => {
       if (event.candidate) {
         if (roomId) {
@@ -110,13 +114,17 @@ async function startVideoCall() {
             .then(() => console.log("Caller ICE candidate sent."))
             .catch(e => console.error("Error sending candidate:", e));
         } else {
-          earlyCandidates.push(event.candidate);
+          pendingCandidates.local.push(event.candidate);
         }
       }
     };
 
     peerConnection.oniceconnectionstatechange = () => {
       console.log("ICE connection state:", peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === 'disconnected') {
+        console.log('Attempting to restart ICE...');
+        peerConnection.restartIce();
+      }
     };
 
     // Create and send offer
@@ -129,26 +137,33 @@ async function startVideoCall() {
       }
     });
 
-    // Answer listener with state check
+    // Process any locally queued candidates
+    pendingCandidates.local.forEach(candidate => {
+      db.collection("rooms").doc(roomId).collection("callerCandidates").add(candidate.toJSON())
+        .then(() => console.log("Sent queued local candidate."))
+        .catch(e => console.error("Error sending queued candidate:", e));
+    });
+
+    // Answer listener
     let hasProcessedAnswer = false;
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer && !hasProcessedAnswer) {
         try {
-          if (peerConnection.signalingState !== "stable") {
-            console.log("Waiting for stable state before setting answer");
-            return;
-          }
-          
           await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
           console.log("Remote description set with answer.");
           hasProcessedAnswer = true;
           
-          // Process any early candidates
-          while (earlyCandidates.length) {
-            const candidate = earlyCandidates.shift();
-            await peerConnection.addIceCandidate(candidate);
-          }
+          // Process any queued remote candidates
+          pendingCandidates.remote.forEach(async candidate => {
+            try {
+              await peerConnection.addIceCandidate(candidate);
+              console.log("Added queued remote candidate.");
+            } catch (e) {
+              console.error("Error adding queued candidate:", e);
+            }
+          });
+          pendingCandidates.remote = [];
         } catch (error) {
           console.error("Error setting remote description:", error);
         }
@@ -157,14 +172,16 @@ async function startVideoCall() {
 
     // Callee candidates listener
     roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(async change => {
+      snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
-          try {
-            const candidate = new RTCIceCandidate(change.doc.data());
-            await peerConnection.addIceCandidate(candidate);
-            console.log("Added callee candidate.");
-          } catch (error) {
-            console.warn("Error adding callee candidate:", error);
+          const candidate = new RTCIceCandidate(change.doc.data());
+          if (peerConnection.remoteDescription) {
+            peerConnection.addIceCandidate(candidate)
+              .then(() => console.log("Added callee candidate."))
+              .catch(e => console.warn("Error adding callee candidate:", e));
+          } else {
+            console.log("Queuing remote candidate until description is set");
+            pendingCandidates.remote.push(candidate);
           }
         }
       });
