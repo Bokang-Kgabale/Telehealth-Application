@@ -18,6 +18,7 @@ let localStream;
 let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
+let remoteDescriptionSet = false; // moved to global scope
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -123,7 +124,7 @@ async function startVideoCall() {
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
-    let remoteDescriptionSet = false; // flag to track if remote description is set
+    // removed local declaration of remoteDescriptionSet
 
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
@@ -147,6 +148,7 @@ async function startVideoCall() {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
+          console.log("remoteDescriptionSet:", remoteDescriptionSet, "signalingState:", peerConnection.signalingState);
           if (remoteDescriptionSet) {
             peerConnection.addIceCandidate(candidate).then(() => {
               console.log("Added callee candidate.");
@@ -233,8 +235,16 @@ async function joinRoom(roomIdInput) {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
-          peerConnection.addIceCandidate(candidate);
-          console.log("Added caller candidate.");
+          console.log("remoteDescriptionSet:", remoteDescriptionSet, "signalingState:", peerConnection.signalingState);
+          if (remoteDescriptionSet) {
+            peerConnection.addIceCandidate(candidate).then(() => {
+              console.log("Added caller candidate.");
+            }).catch(e => {
+              console.error("Error adding caller candidate:", e);
+            });
+          } else {
+            console.log("Remote description not set, skipping ICE candidate.");
+          }
         }
       });
     });
