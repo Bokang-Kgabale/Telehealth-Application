@@ -19,6 +19,7 @@ let remoteStream = new MediaStream();
 let peerConnection;
 let roomId;
 let remoteDescriptionSet = false; // moved to global scope
+let iceCandidateBuffer = []; // buffer for ICE candidates before signalingState is stable
 
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -110,6 +111,22 @@ async function startVideoCall() {
       }
     };
 
+    peerConnection.onsignalingstatechange = () => {
+      console.log("Signaling state changed to:", peerConnection.signalingState);
+      if (peerConnection.signalingState === "stable" && iceCandidateBuffer.length > 0) {
+        console.log(`Signaling state stable, adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
+        iceCandidateBuffer.forEach(async candidate => {
+          try {
+            await peerConnection.addIceCandidate(candidate);
+            console.log("Added buffered ICE candidate on signalingstatechange.");
+          } catch (e) {
+            console.error("Error adding buffered ICE candidate on signalingstatechange:", e);
+          }
+        });
+        iceCandidateBuffer = [];
+      }
+    };
+
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
@@ -144,6 +161,19 @@ async function startVideoCall() {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             remoteDescriptionSet = true;
             console.log("Remote description set with answer.");
+            // After setting remote description, add buffered ICE candidates
+            if (iceCandidateBuffer.length > 0) {
+              console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
+              for (const candidate of iceCandidateBuffer) {
+                try {
+                  await peerConnection.addIceCandidate(candidate);
+                  console.log("Added buffered ICE candidate.");
+                } catch (e) {
+                  console.error("Error adding buffered ICE candidate:", e);
+                }
+              }
+              iceCandidateBuffer = [];
+            }
           } catch (error) {
             console.error("Error setting remote description:", error);
           }
@@ -158,14 +188,15 @@ async function startVideoCall() {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
           console.log("remoteDescriptionSet:", remoteDescriptionSet, "signalingState:", peerConnection.signalingState);
-          if (remoteDescriptionSet) {
+          if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
             peerConnection.addIceCandidate(candidate).then(() => {
               console.log("Added callee candidate.");
             }).catch(e => {
               console.error("Error adding callee candidate:", e);
             });
           } else {
-            console.log("Remote description not set, skipping ICE candidate.");
+            console.log("Buffering ICE candidate as remote description not set or signalingState not stable.");
+            iceCandidateBuffer.push(candidate);
           }
         }
       });
