@@ -22,44 +22,71 @@ let isCaller = false;
 let remoteDescriptionSet = false;
 let iceCandidateBuffer = [];
 let connectionTimer;
-let roomRef; // Reference to the current room document
+let roomRef;
+let restartAttempts = 0;
+const MAX_RESTART_ATTEMPTS = 2;
 
 // DOM elements
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
+const connectionStatus = document.getElementById("connectionStatus");
+const statusText = document.getElementById("statusText");
+const connectionQuality = document.getElementById("connectionQuality");
 
 // ICE Servers configuration
 const iceServers = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
     {
       urls: "turn:relay.metered.ca:443",
       username: "openai",
       credential: "openai123"
     }
-  ]
+  ],
+  iceTransportPolicy: "all",
+  iceCandidatePoolSize: 4
 };
-
-// Constants
-const MAX_CONNECTION_TIME = 10000; // 10 seconds
 
 // Initialize video call
 function initializeVideoCall() {
   console.log("Video call initialized");
+  updateConnectionStatus("Ready to connect", false);
 
   navigator.permissions?.query?.({ name: "camera" })
     .then(permissionStatus => {
       if (permissionStatus.state === "granted") {
         openUserMedia();
-      } else {
-        console.log("Camera permission not yet granted. Waiting for user interaction.");
       }
     })
     .catch(err => {
       console.warn("Permission API not supported or error:", err);
       openUserMedia();
     });
+}
+
+// Update connection status UI
+function updateConnectionStatus(text, show = true) {
+  statusText.textContent = text;
+  if (show) {
+    connectionStatus.classList.add("visible");
+  } else {
+    connectionStatus.classList.remove("visible");
+  }
+}
+
+// Update connection quality indicator
+function updateConnectionQuality(quality) {
+  connectionQuality.className = "connection-quality";
+  if (quality === "good") {
+    connectionQuality.classList.add("good");
+  } else if (quality === "medium") {
+    connectionQuality.classList.add("medium");
+  } else if (quality === "poor") {
+    connectionQuality.classList.add("poor");
+  }
 }
 
 // Request user media
@@ -73,7 +100,7 @@ async function openUserMedia() {
     document.getElementById("muteAudio").disabled = false;
     document.getElementById("toggleVideo").disabled = false;
 
-    console.log("User media opened:", localStream);
+    console.log("User media opened");
   } catch (error) {
     console.error("Error accessing media devices:", error);
     alert("Unable to access camera and microphone. Please allow permissions and try again.");
@@ -84,11 +111,13 @@ async function openUserMedia() {
 async function startVideoCall() {
   try {
     isCaller = true;
+    restartAttempts = 0;
     await setupMediaStream();
     
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
+    updateConnectionStatus("Creating offer...");
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
@@ -111,23 +140,24 @@ async function startVideoCall() {
     document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
-    // Start connection timer
     startConnectionTimer();
+    updateConnectionStatus("Waiting for answer...");
 
     // Listen for answer
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer) {
-        console.log("Signaling state before setRemoteDescription:", peerConnection.signalingState);
-        if (!remoteDescriptionSet && (peerConnection.signalingState === "have-local-offer" || peerConnection.signalingState === "stable")) {
-          try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            remoteDescriptionSet = true;
-            console.log("Remote description set with answer.");
-            processBufferedCandidates();
-          } catch (error) {
-            console.error("Error setting remote description:", error);
-          }
+        console.log("Answer received");
+        updateConnectionStatus("Processing answer...");
+        
+        try {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          remoteDescriptionSet = true;
+          updateConnectionStatus("Connected", false);
+          processBufferedCandidates();
+        } catch (error) {
+          console.error("Error setting remote description:", error);
+          updateConnectionStatus("Error processing answer");
         }
       }
     });
@@ -144,6 +174,7 @@ async function startVideoCall() {
 
   } catch (error) {
     console.error("Error starting video call:", error);
+    updateConnectionStatus("Failed to start call");
     alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
@@ -152,6 +183,7 @@ async function startVideoCall() {
 async function joinRoom(roomIdInput) {
   try {
     isCaller = false;
+    restartAttempts = 0;
     roomRef = db.collection("rooms").doc(roomIdInput);
     const roomSnapshot = await roomRef.get();
 
@@ -168,8 +200,11 @@ async function joinRoom(roomIdInput) {
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
+    updateConnectionStatus("Processing offer...");
     const offer = roomSnapshot.data().offer;
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    updateConnectionStatus("Creating answer...");
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
@@ -183,8 +218,8 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
     remoteDescriptionSet = true;
+    updateConnectionStatus("Connected", false);
 
-    // Start connection timer
     startConnectionTimer();
 
     // Listen for caller candidates
@@ -201,7 +236,37 @@ async function joinRoom(roomIdInput) {
 
   } catch (error) {
     console.error("Error joining room:", error);
+    updateConnectionStatus("Failed to join room");
     alert("Failed to join the room. Check your Room ID or connection.");
+  }
+}
+
+// ICE restart implementation
+async function attemptIceRestart() {
+  if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+    updateConnectionStatus("Connection failed. Please refresh.");
+    return;
+  }
+  
+  restartAttempts++;
+  updateConnectionStatus(`Reconnecting (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`);
+  
+  try {
+    const offer = await peerConnection.createOffer({ iceRestart: true });
+    await peerConnection.setLocalDescription(offer);
+    
+    if (isCaller) {
+      await roomRef.update({
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
+        }
+      });
+      updateConnectionStatus("Sent new offer...");
+    }
+  } catch (err) {
+    console.error("ICE restart failed:", err);
+    updateConnectionStatus("Restart failed");
   }
 }
 
@@ -226,6 +291,7 @@ function setupPeerConnectionListeners() {
     });
     remoteVideo.srcObject = remoteStream;
     console.log("Remote stream received.");
+    updateConnectionQuality("good");
   };
 
   // ICE candidate handler
@@ -244,18 +310,34 @@ function setupPeerConnectionListeners() {
 
   // ICE connection state handler
   peerConnection.oniceconnectionstatechange = () => {
-    console.log("ICE connection state changed to:", peerConnection.iceConnectionState);
-    switch (peerConnection.iceConnectionState) {
+    const state = peerConnection.iceConnectionState;
+    console.log("ICE connection state changed to:", state);
+    
+    switch (state) {
       case "connected":
-        console.log("ICE connection established successfully");
+        updateConnectionStatus("Connected", false);
+        updateConnectionQuality("good");
         clearConnectionTimer();
         break;
-      case "failed":
-        console.error("ICE connection failed - attempting restart...");
-        // Consider implementing ICE restart
+      case "checking":
+        updateConnectionStatus("Connecting...");
+        updateConnectionQuality("medium");
         break;
       case "disconnected":
-        console.warn("ICE connection disconnected - checking network...");
+        updateConnectionStatus("Network issues detected...");
+        updateConnectionQuality("poor");
+        setTimeout(() => {
+          if (peerConnection?.iceConnectionState === "disconnected") {
+            attemptIceRestart();
+          }
+        }, 2000);
+        break;
+      case "failed":
+        updateConnectionStatus("Connection failed");
+        attemptIceRestart();
+        break;
+      case "closed":
+        updateConnectionStatus("Connection closed");
         break;
     }
   };
@@ -267,32 +349,64 @@ function setupPeerConnectionListeners() {
       processBufferedCandidates();
     }
   };
+
+  // Connection stats (for quality monitoring)
+  setInterval(async () => {
+    if (peerConnection && peerConnection.iceConnectionState === "connected") {
+      try {
+        const stats = await peerConnection.getStats();
+        let packetsLost = 0;
+        let packetsReceived = 0;
+        
+        stats.forEach(report => {
+          if (report.type === "inbound-rtp" && report.mediaType === "video") {
+            packetsLost += report.packetsLost;
+            packetsReceived += report.packetsReceived;
+          }
+        });
+        
+        const lossPercentage = packetsReceived > 0 ? (packetsLost / packetsReceived) * 100 : 0;
+        
+        if (lossPercentage > 10) {
+          updateConnectionQuality("poor");
+        } else if (lossPercentage > 5) {
+          updateConnectionQuality("medium");
+        } else {
+          updateConnectionQuality("good");
+        }
+      } catch (e) {
+        console.error("Error getting stats:", e);
+      }
+    }
+  }, 5000);
 }
 
-// Helper function to handle incoming ICE candidates
+// Helper functions
+async function setupMediaStream() {
+  if (!localStream) {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+  }
+}
+
 function handleIncomingIceCandidate(candidate) {
-  console.log("remoteDescriptionSet:", remoteDescriptionSet, "signalingState:", peerConnection.signalingState);
   if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
     addIceCandidateSafely(candidate);
   } else {
-    console.log("Buffering ICE candidate as remote description not set or signalingState not stable.");
+    console.log("Buffering ICE candidate");
     iceCandidateBuffer.push(candidate);
   }
 }
 
-// Helper function to safely add ICE candidates
 async function addIceCandidateSafely(candidate) {
   try {
     await peerConnection.addIceCandidate(candidate);
     console.log("Successfully added ICE candidate");
-    return true;
   } catch (e) {
     console.error("Error adding ICE candidate:", e);
-    return false;
   }
 }
 
-// Helper function to process buffered ICE candidates
 async function processBufferedCandidates() {
   if (iceCandidateBuffer.length > 0) {
     console.log(`Processing ${iceCandidateBuffer.length} buffered ICE candidates`);
@@ -303,23 +417,15 @@ async function processBufferedCandidates() {
   }
 }
 
-// Helper function to setup media stream
-async function setupMediaStream() {
-  if (!localStream) {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-  }
-}
-
 // Connection timer functions
 function startConnectionTimer() {
-  clearConnectionTimer(); // Clear any existing timer
+  clearConnectionTimer();
   connectionTimer = setTimeout(() => {
     if (peerConnection && 
         (peerConnection.iceConnectionState === 'checking' || 
          peerConnection.iceConnectionState === 'disconnected')) {
       console.warn("Connection taking too long - attempting recovery");
-      // Implement recovery logic here if needed
+      attemptIceRestart();
     }
   }, MAX_CONNECTION_TIME);
 }
@@ -335,10 +441,9 @@ function clearConnectionTimer() {
 async function hangUp() {
   console.log("Hanging up the call...");
   
-  // Clear the connection timer
   clearConnectionTimer();
+  updateConnectionStatus("Call ended", false);
 
-  // Stop all media tracks
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
@@ -346,26 +451,20 @@ async function hangUp() {
 
   if (remoteStream) {
     remoteStream.getTracks().forEach(track => track.stop());
-    remoteStream = new MediaStream(); // Reset remote stream
+    remoteStream = new MediaStream();
   }
 
-  // Close peer connection
   if (peerConnection) {
     peerConnection.close();
     peerConnection = null;
-    console.log("Peer connection closed.");
   }
 
-  // Clear any pending candidates
   iceCandidateBuffer = [];
 
-  // Clean up Firestore listeners and data if room exists
   if (roomRef) {
-    // Delete the room if we're the caller
     if (isCaller) {
       try {
         await roomRef.delete();
-        console.log("Room deleted successfully");
       } catch (error) {
         console.error("Error deleting room:", error);
       }
@@ -373,11 +472,9 @@ async function hangUp() {
     roomRef = null;
   }
 
-  // Clean up UI
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
   
-  // Reset UI elements
   document.getElementById("currentRoom").innerText = "";
   document.getElementById("startCall").disabled = true;
   document.getElementById("joinCall").disabled = true;
@@ -385,13 +482,12 @@ async function hangUp() {
   document.getElementById("muteAudio").disabled = true;
   document.getElementById("toggleVideo").disabled = true;
 
-  // Reset room ID
   roomId = null;
   isCaller = false;
   remoteDescriptionSet = false;
+  restartAttempts = 0;
 
   console.log("Call ended and all resources cleaned up.");
-  location.reload();
 }
 
 // Event listeners
@@ -408,11 +504,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("muteAudio").onclick = () => {
     if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      const icon = localStream.getAudioTracks()[0].enabled
-        ? '<i class="fas fa-microphone"></i>'
+      const audioTracks = localStream.getAudioTracks();
+      audioTracks.forEach(track => track.enabled = !track.enabled);
+      const icon = audioTracks[0].enabled 
+        ? '<i class="fas fa-microphone"></i>' 
         : '<i class="fas fa-microphone-slash"></i>';
       document.getElementById("muteAudio").innerHTML = icon;
     }
@@ -420,10 +515,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("toggleVideo").onclick = () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      const icon = localStream.getVideoTracks()[0].enabled
+      const videoTracks = localStream.getVideoTracks();
+      videoTracks.forEach(track => track.enabled = !track.enabled);
+      const icon = videoTracks[0].enabled
         ? '<i class="fas fa-video"></i>'
         : '<i class="fas fa-video-slash"></i>';
       document.getElementById("toggleVideo").innerHTML = icon;

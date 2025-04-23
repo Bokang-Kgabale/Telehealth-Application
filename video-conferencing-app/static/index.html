@@ -16,6 +16,12 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
 </head>
 <body>
+  <!-- Connection Status Indicator -->
+  <div id="connectionStatus" class="connection-status">
+    <div class="connection-spinner"></div>
+    <span id="statusText">Ready to connect</span>
+  </div>
+
   <!-- Video Container -->
   <div class="video-container">
     <!-- Remote Video (Background) -->
@@ -26,6 +32,12 @@
     <video id="localVideo" autoplay playsinline>
       Your browser does not support the video tag.
     </video>
+    
+    <!-- Connection Quality Indicator -->
+    <div id="connectionQuality" class="connection-quality">
+      <i class="fas fa-circle"></i>
+      <span>Connection quality</span>
+    </div>
   </div>
 
   <!-- Buttons -->
@@ -51,8 +63,9 @@
   </div>
 
   <!-- Room Info -->
-  <div>
+  <div class="room-info">
     <p id="currentRoom"></p>
+    <div id="connectionStats" class="connection-stats"></div>
   </div>
 
   <!-- Main Script -->
