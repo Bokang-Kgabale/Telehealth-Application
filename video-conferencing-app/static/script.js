@@ -31,6 +31,9 @@ const MAX_CONNECTION_TIME = 10000; // 10 seconds
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 remoteVideo.srcObject = remoteStream;
+const connectionStatus = document.getElementById("connectionStatus");
+const statusText = document.getElementById("statusText");
+const connectionQuality = document.getElementById("connectionQuality");
 
 // ICE Servers configuration
 const iceServers = {
@@ -49,6 +52,7 @@ const iceServers = {
 // Initialize video call
 function initializeVideoCall() {
   console.log("Video call initialized");
+  updateConnectionStatus("Ready to connect", false);
 
   navigator.permissions?.query?.({ name: "camera" })
     .then(permissionStatus => {
@@ -64,6 +68,28 @@ function initializeVideoCall() {
     });
 }
 
+// Update connection status UI
+function updateConnectionStatus(text, show = true) {
+  statusText.textContent = text;
+  if (show) {
+    connectionStatus.classList.add("visible");
+  } else {
+    connectionStatus.classList.remove("visible");
+  }
+}
+
+// Update connection quality indicator
+function updateConnectionQuality(quality) {
+  connectionQuality.className = "connection-quality";
+  connectionQuality.classList.add(quality);
+  const qualityText = {
+    good: "Good connection",
+    medium: "Medium connection",
+    poor: "Poor connection"
+  };
+  connectionQuality.innerHTML = `<i class="fas fa-circle"></i> <span>${qualityText[quality]}</span>`;
+}
+
 // Request user media
 async function openUserMedia() {
   try {
@@ -75,9 +101,11 @@ async function openUserMedia() {
     document.getElementById("muteAudio").disabled = false;
     document.getElementById("toggleVideo").disabled = false;
 
-    console.log("User media opened:", localStream);
+    console.log("User media opened");
+    updateConnectionStatus("Ready to connect", false);
   } catch (error) {
     console.error("Error accessing media devices:", error);
+    updateConnectionStatus("Media access failed");
     alert("Unable to access camera and microphone. Please allow permissions and try again.");
   }
 }
@@ -103,6 +131,7 @@ function setupPeerConnectionListeners() {
     });
     remoteVideo.srcObject = remoteStream;
     console.log("Remote stream received.");
+    updateConnectionQuality("good");
   };
 
   // ICE candidate handler
@@ -121,23 +150,32 @@ function setupPeerConnectionListeners() {
 
   // ICE connection state handler
   peerConnection.oniceconnectionstatechange = () => {
-    console.log("ICE connection state changed to:", peerConnection.iceConnectionState);
-    switch (peerConnection.iceConnectionState) {
+    const state = peerConnection.iceConnectionState;
+    console.log("ICE connection state changed to:", state);
+    
+    switch (state) {
       case "connected":
-        console.log("ICE connection established successfully");
+        updateConnectionStatus("Connected", false);
+        updateConnectionQuality("good");
         clearConnectionTimer();
         break;
-      case "failed":
-        console.error("ICE connection failed - attempting restart...");
-        attemptIceRestart();
+      case "checking":
+        updateConnectionStatus("Connecting...");
+        updateConnectionQuality("medium");
         break;
       case "disconnected":
-        console.warn("ICE connection disconnected - checking network...");
+        updateConnectionStatus("Network issues detected...");
+        updateConnectionQuality("poor");
         setTimeout(() => {
           if (peerConnection?.iceConnectionState === 'disconnected') {
             attemptIceRestart();
           }
         }, 2000);
+        break;
+      case "failed":
+        updateConnectionStatus("Connection failed");
+        updateConnectionQuality("poor");
+        attemptIceRestart();
         break;
     }
   };
@@ -154,12 +192,12 @@ function setupPeerConnectionListeners() {
 // ICE restart implementation
 async function attemptIceRestart() {
   if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
-    console.error("Max restart attempts reached");
+    updateConnectionStatus("Connection failed. Please refresh.");
     return;
   }
   
   restartAttempts++;
-  console.log(`Attempting ICE restart (attempt ${restartAttempts})`);
+  updateConnectionStatus(`Reconnecting (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`);
   
   try {
     const offer = await peerConnection.createOffer({ iceRestart: true });
@@ -175,6 +213,7 @@ async function attemptIceRestart() {
     }
   } catch (err) {
     console.error("ICE restart failed:", err);
+    updateConnectionStatus("Restart failed");
   }
 }
 
@@ -250,6 +289,7 @@ async function startVideoCall() {
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
+    updateConnectionStatus("Creating offer...");
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
@@ -273,20 +313,19 @@ async function startVideoCall() {
     document.getElementById("hangUp").disabled = false;
 
     startConnectionTimer();
+    updateConnectionStatus("Waiting for answer...");
 
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer) {
-        console.log("Signaling state before setRemoteDescription:", peerConnection.signalingState);
-        if (!remoteDescriptionSet && (peerConnection.signalingState === "have-local-offer" || peerConnection.signalingState === "stable")) {
-          try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            remoteDescriptionSet = true;
-            console.log("Remote description set with answer.");
-            processBufferedCandidates();
-          } catch (error) {
-            console.error("Error setting remote description:", error);
-          }
+        try {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          remoteDescriptionSet = true;
+          updateConnectionStatus("Connected", false);
+          processBufferedCandidates();
+        } catch (error) {
+          console.error("Error setting remote description:", error);
+          updateConnectionStatus("Error processing answer");
         }
       }
     });
@@ -302,6 +341,7 @@ async function startVideoCall() {
 
   } catch (error) {
     console.error("Error starting video call:", error);
+    updateConnectionStatus("Failed to start call");
     alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
@@ -327,8 +367,11 @@ async function joinRoom(roomIdInput) {
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
+    updateConnectionStatus("Processing offer...");
     const offer = roomSnapshot.data().offer;
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    updateConnectionStatus("Creating answer...");
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
@@ -342,6 +385,7 @@ async function joinRoom(roomIdInput) {
     await roomRef.update(roomWithAnswer);
     console.log("Answer sent to Firestore.");
     remoteDescriptionSet = true;
+    updateConnectionStatus("Connected", false);
 
     startConnectionTimer();
 
@@ -358,6 +402,7 @@ async function joinRoom(roomIdInput) {
 
   } catch (error) {
     console.error("Error joining room:", error);
+    updateConnectionStatus("Failed to join room");
     alert("Failed to join the room. Check your Room ID or connection.");
   }
 }
@@ -367,6 +412,7 @@ async function hangUp() {
   console.log("Hanging up the call...");
   
   clearConnectionTimer();
+  updateConnectionStatus("Call ended", false);
 
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
