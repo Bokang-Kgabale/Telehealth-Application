@@ -22,6 +22,7 @@ let isCaller = false;
 let remoteDescriptionSet = false;
 let iceCandidateBuffer = [];
 let connectionTimer;
+let roomRef; // Reference to the current room document
 
 // DOM elements
 const localVideo = document.getElementById("localVideo");
@@ -98,7 +99,6 @@ async function startVideoCall() {
       }
     };
 
-    let roomRef;
     if (roomId) {
       roomRef = db.collection("rooms").doc(roomId);
       await roomRef.set(roomWithOffer, { merge: true });
@@ -152,7 +152,7 @@ async function startVideoCall() {
 async function joinRoom(roomIdInput) {
   try {
     isCaller = false;
-    const roomRef = db.collection("rooms").doc(roomIdInput);
+    roomRef = db.collection("rooms").doc(roomIdInput);
     const roomSnapshot = await roomRef.get();
 
     if (!roomSnapshot.exists) {
@@ -313,6 +313,7 @@ async function setupMediaStream() {
 
 // Connection timer functions
 function startConnectionTimer() {
+  clearConnectionTimer(); // Clear any existing timer
   connectionTimer = setTimeout(() => {
     if (peerConnection && 
         (peerConnection.iceConnectionState === 'checking' || 
@@ -326,6 +327,7 @@ function startConnectionTimer() {
 function clearConnectionTimer() {
   if (connectionTimer) {
     clearTimeout(connectionTimer);
+    connectionTimer = null;
   }
 }
 
@@ -337,16 +339,38 @@ async function hangUp() {
   clearConnectionTimer();
 
   // Stop all media tracks
-  [localStream, remoteStream].forEach(stream => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  });
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+
+  if (remoteStream) {
+    remoteStream.getTracks().forEach(track => track.stop());
+    remoteStream = new MediaStream(); // Reset remote stream
+  }
 
   // Close peer connection
   if (peerConnection) {
     peerConnection.close();
     peerConnection = null;
+    console.log("Peer connection closed.");
+  }
+
+  // Clear any pending candidates
+  iceCandidateBuffer = [];
+
+  // Clean up Firestore listeners and data if room exists
+  if (roomRef) {
+    // Delete the room if we're the caller
+    if (isCaller) {
+      try {
+        await roomRef.delete();
+        console.log("Room deleted successfully");
+      } catch (error) {
+        console.error("Error deleting room:", error);
+      }
+    }
+    roomRef = null;
   }
 
   // Clean up UI
@@ -361,7 +385,13 @@ async function hangUp() {
   document.getElementById("muteAudio").disabled = true;
   document.getElementById("toggleVideo").disabled = true;
 
-  console.log("Call ended and resources cleaned up.");
+  // Reset room ID
+  roomId = null;
+  isCaller = false;
+  remoteDescriptionSet = false;
+
+  console.log("Call ended and all resources cleaned up.");
+  location.reload();
 }
 
 // Event listeners
