@@ -1,4 +1,4 @@
-// Firebase configuration
+// Firebase configuration 
 fetch('/firebase-config')
   .then(res => res.json())
   .then(config => {
@@ -23,6 +23,8 @@ let remoteDescriptionSet = false;
 let iceCandidateBuffer = [];
 let connectionTimer;
 let roomRef;
+let callerCandidatesCollection;
+let calleeCandidatesCollection;
 let restartAttempts = 0;
 const MAX_RESTART_ATTEMPTS = 2;
 const MAX_CONNECTION_TIME = 10000; // 10 seconds
@@ -34,6 +36,9 @@ remoteVideo.srcObject = remoteStream;
 const connectionStatus = document.getElementById("connectionStatus");
 const statusText = document.getElementById("statusText");
 const connectionQuality = document.getElementById("connectionQuality");
+const copyRoomIdBtn = document.getElementById("copyRoomIdBtn");
+const currentRoomDisplay = document.getElementById("currentRoom");
+const connectionStateDisplay = document.getElementById("connectionState");
 
 // ICE Servers configuration
 const iceServers = {
@@ -90,6 +95,13 @@ function updateConnectionQuality(quality) {
   connectionQuality.innerHTML = `<i class="fas fa-circle"></i> <span>${qualityText[quality]}</span>`;
 }
 
+// Update connection state display
+function updateConnectionState(state) {
+  if (connectionStateDisplay) {
+    connectionStateDisplay.textContent = `Connection State: ${state}`;
+  }
+}
+
 // Request user media
 async function openUserMedia() {
   try {
@@ -124,12 +136,18 @@ function createPeerConnection() {
 
 // Helper function to setup peer connection listeners
 function setupPeerConnectionListeners() {
-  // Handle remote stream
+  // Handle remote stream with browser compatibility
   peerConnection.ontrack = event => {
-    event.streams[0].getTracks().forEach(track => {
-      remoteStream.addTrack(track);
-    });
-    remoteVideo.srcObject = remoteStream;
+    // For Safari compatibility
+    if (event.streams && event.streams[0]) {
+      remoteVideo.srcObject = event.streams[0];
+    } else {
+      // Fallback for other browsers
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+      remoteVideo.srcObject = remoteStream;
+    }
     console.log("Remote stream received.");
     updateConnectionQuality("good");
   };
@@ -152,6 +170,7 @@ function setupPeerConnectionListeners() {
   peerConnection.oniceconnectionstatechange = () => {
     const state = peerConnection.iceConnectionState;
     console.log("ICE connection state changed to:", state);
+    updateConnectionState(state);
     
     switch (state) {
       case "connected":
@@ -189,7 +208,7 @@ function setupPeerConnectionListeners() {
   };
 }
 
-// ICE restart implementation
+// Enhanced ICE restart mechanism
 async function attemptIceRestart() {
   if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
     updateConnectionStatus("Connection failed. Please refresh.");
@@ -200,6 +219,11 @@ async function attemptIceRestart() {
   updateConnectionStatus(`Reconnecting (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`);
   
   try {
+    // Use restartIce if available, otherwise create new offer
+    if (peerConnection.restartIce) {
+      peerConnection.restartIce();
+    }
+    
     const offer = await peerConnection.createOffer({ iceRestart: true });
     await peerConnection.setLocalDescription(offer);
     
@@ -217,9 +241,8 @@ async function attemptIceRestart() {
   }
 }
 
-// Helper function to handle incoming ICE candidates
+// Buffer ICE candidates until remote description is set and signaling state is stable
 function handleIncomingIceCandidate(candidate) {
-  console.log("remoteDescriptionSet:", remoteDescriptionSet, "signalingState:", peerConnection.signalingState);
   if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
     addIceCandidateSafely(candidate);
   } else {
@@ -240,7 +263,7 @@ async function addIceCandidateSafely(candidate) {
   }
 }
 
-// Helper function to process buffered ICE candidates
+// Process buffered ICE candidates
 async function processBufferedCandidates() {
   if (iceCandidateBuffer.length > 0) {
     console.log(`Processing ${iceCandidateBuffer.length} buffered ICE candidates`);
@@ -256,6 +279,20 @@ async function setupMediaStream() {
   if (!localStream) {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
+  }
+}
+
+// Toggle camera function
+function toggleCamera() {
+  if (localStream) {
+    const videoTracks = localStream.getVideoTracks();
+    if (videoTracks.length > 0) {
+      videoTracks[0].enabled = !videoTracks[0].enabled;
+      const icon = videoTracks[0].enabled
+        ? '<i class="fas fa-video"></i>'
+        : '<i class="fas fa-video-slash"></i>';
+      document.getElementById("toggleVideo").innerHTML = icon;
+    }
   }
 }
 
@@ -309,8 +346,12 @@ async function startVideoCall() {
     }
 
     window.currentRoom = roomId;
-    document.getElementById("currentRoom").innerText = `Room ID: ${roomId}`;
+    currentRoomDisplay.innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
+
+    // Initialize candidates collections
+    callerCandidatesCollection = roomRef.collection("callerCandidates");
+    calleeCandidatesCollection = roomRef.collection("calleeCandidates");
 
     startConnectionTimer();
     updateConnectionStatus("Waiting for answer...");
@@ -319,10 +360,13 @@ async function startVideoCall() {
       const data = snapshot.data();
       if (data?.answer) {
         try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-          remoteDescriptionSet = true;
-          updateConnectionStatus("Connected", false);
-          processBufferedCandidates();
+          // Handle ICE restart for callee
+          if (!peerConnection.currentRemoteDescription || data.offer.type === 'offer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            remoteDescriptionSet = true;
+            updateConnectionStatus("Connected", false);
+            processBufferedCandidates();
+          }
         } catch (error) {
           console.error("Error setting remote description:", error);
           updateConnectionStatus("Error processing answer");
@@ -330,7 +374,7 @@ async function startVideoCall() {
       }
     });
 
-    roomRef.collection("calleeCandidates").onSnapshot(snapshot => {
+    calleeCandidatesCollection.onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
@@ -360,36 +404,44 @@ async function joinRoom(roomIdInput) {
     }
 
     console.log(`Joining room: ${roomIdInput}`);
-    document.getElementById("currentRoom").innerText = `Room ID: ${roomIdInput}`;
+    currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
     roomId = roomIdInput;
 
     await setupMediaStream();
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
+    // Initialize candidates collections
+    callerCandidatesCollection = roomRef.collection("callerCandidates");
+    calleeCandidatesCollection = roomRef.collection("calleeCandidates");
+
     updateConnectionStatus("Processing offer...");
     const offer = roomSnapshot.data().offer;
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     
-    updateConnectionStatus("Creating answer...");
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
+    // Handle ICE restart for callee
+    if (!peerConnection.currentRemoteDescription || offer.type === 'offer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      
+      updateConnectionStatus("Creating answer...");
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
 
-    const roomWithAnswer = {
-      answer: {
-        type: answer.type,
-        sdp: answer.sdp
-      }
-    };
+      const roomWithAnswer = {
+        answer: {
+          type: answer.type,
+          sdp: answer.sdp
+        }
+      };
 
-    await roomRef.update(roomWithAnswer);
-    console.log("Answer sent to Firestore.");
-    remoteDescriptionSet = true;
-    updateConnectionStatus("Connected", false);
+      await roomRef.update(roomWithAnswer);
+      console.log("Answer sent to Firestore.");
+      remoteDescriptionSet = true;
+      updateConnectionStatus("Connected", false);
+    }
 
     startConnectionTimer();
 
-    roomRef.collection("callerCandidates").onSnapshot(snapshot => {
+    callerCandidatesCollection.onSnapshot(snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === "added") {
           const candidate = new RTCIceCandidate(change.doc.data());
@@ -431,6 +483,25 @@ async function hangUp() {
 
   iceCandidateBuffer = [];
 
+  // Clean up Firestore candidates
+  if (callerCandidatesCollection) {
+    try {
+      const snapshot = await callerCandidatesCollection.get();
+      snapshot.forEach(doc => doc.ref.delete());
+    } catch (error) {
+      console.error("Error deleting caller candidates:", error);
+    }
+  }
+
+  if (calleeCandidatesCollection) {
+    try {
+      const snapshot = await calleeCandidatesCollection.get();
+      snapshot.forEach(doc => doc.ref.delete());
+    } catch (error) {
+      console.error("Error deleting callee candidates:", error);
+    }
+  }
+
   if (roomRef) {
     if (isCaller) {
       try {
@@ -445,7 +516,7 @@ async function hangUp() {
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
   
-  document.getElementById("currentRoom").innerText = "";
+  currentRoomDisplay.innerText = "";
   document.getElementById("startCall").disabled = true;
   document.getElementById("joinCall").disabled = true;
   document.getElementById("hangUp").disabled = true;
@@ -484,15 +555,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  document.getElementById("toggleVideo").onclick = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      const icon = localStream.getVideoTracks()[0].enabled
-        ? '<i class="fas fa-video"></i>'
-        : '<i class="fas fa-video-slash"></i>';
-      document.getElementById("toggleVideo").innerHTML = icon;
-    }
-  };
+  document.getElementById("toggleVideo").onclick = toggleCamera;
+
+  // Copy room ID to clipboard
+  if (copyRoomIdBtn) {
+    copyRoomIdBtn.addEventListener("click", () => {
+      if (roomId) {
+        navigator.clipboard.writeText(roomId)
+          .then(() => alert("Room ID copied to clipboard"))
+          .catch(err => alert("Failed to copy Room ID: " + err));
+      }
+    });
+  }
 });
