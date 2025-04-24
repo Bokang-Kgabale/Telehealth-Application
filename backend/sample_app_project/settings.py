@@ -70,10 +70,7 @@ WSGI_APPLICATION = 'sample_app_project.wsgi.application'
 
 # Database: PostgreSQL on Render or fallback to SQLite for local dev
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
-        conn_max_age=600
-    )
+    'default': dj_database_url.config(default=os.environ.get("DATABASE_URL"))
 }
 
 # Password validation
