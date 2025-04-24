@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 from django import middleware
@@ -27,7 +28,7 @@ SECRET_KEY = 'django-insecure-n4p#sq3ix)kg==*8va6-uwr7)zi9tm_1=4*ub#qyi)@90w(%)=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['.onrender.com']
 CORS_ALLOW_ALL_ORIGINS = True
 # Prevent redirect issues
 APPEND_SLASH = False
@@ -125,6 +126,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
