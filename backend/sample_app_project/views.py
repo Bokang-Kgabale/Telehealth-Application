@@ -11,19 +11,29 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-# Set up Firebase credentials
-base_dir = os.path.dirname(os.path.abspath(__file__))
-json_path = os.path.join(base_dir, "..", "config", "firebase-adminsdk.json")
-cred = credentials.Certificate(json_path)
+# Set up Firebase credentials from environment variable
+firebase_creds_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+if not firebase_creds_json:
+    raise Exception("Missing FIREBASE_CREDENTIALS_JSON environment variable")
+
+firebase_creds = json.loads(firebase_creds_json)
+cred = credentials.Certificate(firebase_creds)
+
 # Initialize Firebase Admin SDK
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://fir-rtc-521a2-default-rtdb.firebaseio.com/'
 })
 
-# Set up Google Cloud Vision credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
-    os.path.dirname(__file__), '..', 'config', 'vision-key.json'
-)
+# Set up Google Cloud Vision credentials from environment variable
+vision_creds_json = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+if not vision_creds_json:
+    raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable")
+
+vision_key_path = "/tmp/vision-key.json"
+with open(vision_key_path, "w") as f:
+    f.write(vision_creds_json)
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = vision_key_path
 client = vision.ImageAnnotatorClient()
 
 @csrf_exempt
