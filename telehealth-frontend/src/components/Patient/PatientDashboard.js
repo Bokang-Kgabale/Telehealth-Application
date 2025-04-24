@@ -88,7 +88,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
             formData.append('type', type);
             formData.append('roomId', roomId);  // ✅ Add roomId to upload
     
-            const response = await fetch('http://127.0.0.1:8000/api/upload/', {
+            const response = await fetch('https://ocr-backend-application.onrender.com/api/upload/', {
                 method: 'POST',
                 body: formData,
             });

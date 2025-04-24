@@ -27,7 +27,7 @@ const DoctorDashboard = () => {
 
         setLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:8000/api/get-data/?roomId=${encodeURIComponent(searchQuery)}`);
+            const response = await fetch(`https://ocr-backend-application.onrender.com/api/get-data/?roomId=${encodeURIComponent(searchQuery)}`);
             const data = await response.json();
 
             if (response.ok) {

@@ -39,7 +39,7 @@ const CameraCapture = () => {
     // Function to send image to Django backend with roomId
     const sendImageToBackend = async (imageSrc, type) => {
         try {
-            const response = await fetch("http://127.0.0.1:8000/api/upload/", {
+            const response = await fetch("https://ocr-backend-application.onrender.com/api/upload/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ image: imageSrc, type, room_id: roomId }),  // Send room_id
