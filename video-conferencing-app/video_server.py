@@ -8,12 +8,15 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
     from typing import List
     import uvicorn
+    from dotenv import load_dotenv
 except ImportError as e:
     print(f"Missing required package: {e.name}")
     print("Install dependencies with: pip install -r requirements.txt")
     raise
 
-# Rest of your existing code...
+# Load environment variables from .env file
+load_dotenv()
+
 # Initialize FastAPI with CORS
 app = FastAPI()
 
@@ -51,27 +54,41 @@ async def get_firebase_config():
             status_code=500
         )
 
-# TURN Credentials Endpoint
+# TURN Credentials Endpoint with enhanced logging
 @app.get("/api/turn-credentials")
 async def get_turn_credentials(request: Request):
     try:
         METERED_API_KEY = os.getenv("METERED_API_KEY")
+        print(f"METERED_API_KEY configured: {'Yes' if METERED_API_KEY else 'No'}")
+        
         if not METERED_API_KEY:
             raise ValueError("METERED_API_KEY not configured")
 
+        url = f"https://www.metered.ca/api/v1/turn/credentials?apiKey={METERED_API_KEY}&lifetime=3600"
+        print(f"Requesting TURN credentials from: {url}")
+        
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                # Use www.metered.ca instead of metered.ca
-                f"https://www.metered.ca/api/v1/turn/credentials?apiKey={METERED_API_KEY}&lifetime=3600",
-                timeout=10.0,
-                follow_redirects=True  # Explicitly enable redirect following
-            )
-            response.raise_for_status()
-            return JSONResponse(content=response.json())
+            try:
+                response = await client.get(
+                    url, 
+                    timeout=10.0,
+                    follow_redirects=True  # Explicitly enable redirect following
+                )
+                print(f"Metered.ca response status: {response.status_code}")
+                response.raise_for_status()
+                result = response.json()
+                print("Successfully received TURN credentials")
+                return JSONResponse(content=result)
+            except httpx.HTTPStatusError as e:
+                print(f"HTTP status error: {e.response.status_code}, {await e.response.text()}")
+                raise
+            except Exception as e:
+                print(f"Request error: {type(e).__name__}: {str(e)}")
+                raise
     except Exception as e:
-        print(f"TURN credentials error: {e}")
+        print(f"TURN credentials error: {type(e).__name__}: {str(e)}")
         return JSONResponse(
-            content={"error": "Failed to fetch TURN credentials"},
+            content={"error": f"Failed to fetch TURN credentials: {str(e)}"},
             status_code=500
         )
 
@@ -117,6 +134,11 @@ async def read_index():
     except FileNotFoundError:
         return HTMLResponse(content="<h1>Index file not found</h1>", status_code=404)
 
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
-    uvicorn.run("video_server:app", host="0.0.0.0", port=port)
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)

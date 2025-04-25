@@ -42,55 +42,37 @@ const copyRoomIdBtn = document.getElementById("copyRoomIdBtn");
 const currentRoomDisplay = document.getElementById("currentRoom");
 const connectionStateDisplay = document.getElementById("connectionState");
 
-// Initialize video call
-function initializeVideoCall() {
-  console.log("Video call initialized");
-  updateConnectionStatus("Ready to connect", false);
-
-  // Fetch TURN credentials immediately
-  fetchTurnCredentials().then(() => {
-    navigator.permissions?.query?.({ name: "camera" })
-      .then(permissionStatus => {
-        if (permissionStatus.state === "granted") {
-          openUserMedia();
-        } else {
-          console.log("Camera permission not yet granted. Waiting for user interaction.");
-        }
-      })
-      .catch(err => {
-        console.warn("Permission API not supported or error:", err);
-        openUserMedia();
-      });
-  });
-}
-
-// Fetch TURN credentials from Metered.ca
+// Enhanced TURN credentials handling
 async function fetchTurnCredentials() {
   try {
+    console.log("Fetching TURN credentials...");
+    
     const response = await fetch('/api/turn-credentials');
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Server response:", errorText);
       throw new Error(`Failed to fetch TURN credentials: ${response.statusText}`);
     }
     
     const turnServers = await response.json();
-    console.log("Received temporary TURN credentials (valid for 1 hour)");
+    console.log("Received TURN servers:", turnServers);
     
-    // Set up ICE servers with both STUN and TURN
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.google.com:19302" },
         { urls: "stun:stun2.google.com:19302" },
-        ...turnServers
+        ...turnServers.iceServers || []
       ]
     };
     
-    console.log("Updated ICE servers configuration");
+    console.log("Updated ICE servers configuration:", iceServers);
     lastCredentialsFetchTime = Date.now();
     return true;
   } catch (error) {
     console.error("Error fetching TURN credentials:", error);
-    // Fallback to STUN-only if TURN credentials fetch fails
+    console.warn("Continuing with STUN servers only");
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -102,13 +84,32 @@ async function fetchTurnCredentials() {
   }
 }
 
-// Ensure credentials are fresh before a call
 async function ensureFreshCredentials() {
-  // If it's been more than 50 minutes since last fetch, get new credentials
   const timeSinceLastFetch = Date.now() - lastCredentialsFetchTime;
-  if (!lastCredentialsFetchTime || timeSinceLastFetch > 50 * 60 * 1000) { // 50 minutes
+  if (!lastCredentialsFetchTime || timeSinceLastFetch > 50 * 60 * 1000) {
     await fetchTurnCredentials();
   }
+}
+
+// Initialize video call
+async function initializeVideoCall() {
+  console.log("Video call initialized");
+  updateConnectionStatus("Ready to connect", false);
+
+  await fetchTurnCredentials();
+
+  navigator.permissions?.query?.({ name: "camera" })
+    .then(permissionStatus => {
+      if (permissionStatus.state === "granted") {
+        openUserMedia();
+      } else {
+        console.log("Camera permission not yet granted. Waiting for user interaction.");
+      }
+    })
+    .catch(err => {
+      console.warn("Permission API not supported or error:", err);
+      openUserMedia();
+    });
 }
 
 // Update connection status UI
@@ -121,7 +122,6 @@ function updateConnectionStatus(text, show = true) {
   }
 }
 
-// Update connection quality indicator
 function updateConnectionQuality(quality) {
   connectionQuality.className = "connection-quality";
   connectionQuality.classList.add(quality);
@@ -133,7 +133,6 @@ function updateConnectionQuality(quality) {
   connectionQuality.innerHTML = `<i class="fas fa-circle"></i> <span>${qualityText[quality]}</span>`;
 }
 
-// Update connection state display
 function updateConnectionState(state) {
   if (connectionStateDisplay) {
     connectionStateDisplay.textContent = `Connection State: ${state}`;
@@ -160,7 +159,7 @@ async function openUserMedia() {
   }
 }
 
-// Helper function to create peer connection
+// Peer connection management
 function createPeerConnection() {
   if (!iceServers) {
     console.error("ICE servers not configured");
@@ -169,7 +168,6 @@ function createPeerConnection() {
   
   const pc = new RTCPeerConnection(iceServers);
   
-  // Add local tracks
   localStream.getTracks().forEach(track => {
     pc.addTrack(track, localStream);
   });
@@ -177,15 +175,11 @@ function createPeerConnection() {
   return pc;
 }
 
-// Helper function to setup peer connection listeners
 function setupPeerConnectionListeners() {
-  // Handle remote stream with browser compatibility
   peerConnection.ontrack = event => {
-    // For Safari compatibility
     if (event.streams && event.streams[0]) {
       remoteVideo.srcObject = event.streams[0];
     } else {
-      // Fallback for other browsers
       event.streams[0].getTracks().forEach(track => {
         remoteStream.addTrack(track);
       });
@@ -195,20 +189,17 @@ function setupPeerConnectionListeners() {
     updateConnectionQuality("good");
   };
 
-  // ICE candidate handler
   peerConnection.onicecandidate = event => {
     if (event.candidate) {
-      console.log("New ICE candidate generated:", event.candidate);
+      console.log("New ICE candidate:", event.candidate);
       
-      // Log if this is a TURN candidate (relay)
       if (event.candidate.candidate.includes('relay')) {
-        console.log("TURN server being used for this connection");
+        console.log("TURN server being used");
       }
       
       if (roomId) {
         const collectionName = isCaller ? "callerCandidates" : "calleeCandidates";
         db.collection("rooms").doc(roomId).collection(collectionName).add(event.candidate.toJSON())
-          .then(() => console.log("ICE candidate sent successfully"))
           .catch(e => console.error("Error sending ICE candidate:", e));
       }
     } else {
@@ -216,26 +207,27 @@ function setupPeerConnectionListeners() {
     }
   };
 
-  // ICE connection state handler
   peerConnection.oniceconnectionstatechange = () => {
     const state = peerConnection.iceConnectionState;
-    console.log("ICE connection state changed to:", state);
+    console.log("ICE connection state:", state);
     updateConnectionState(state);
     
-    // If connected, check what type of candidate pair was selected
     if (state === 'connected' || state === 'completed') {
-      peerConnection.getStats().then(stats => {
-        stats.forEach(report => {
-          if (report.type === 'candidate-pair' && report.selected) {
-            console.log("Selected candidate pair:", report);
-            if (report.localCandidateId) {
-              const localCandidate = stats.get(report.localCandidateId);
-              console.log("Local candidate:", localCandidate);
-              console.log("Connection using TURN?", localCandidate.candidateType === 'relay');
+      if (peerConnection.getStats) {
+        peerConnection.getStats().then(stats => {
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.selected) {
+              console.log("Selected candidate pair:", report);
+              if (report.localCandidateId) {
+                const localCandidate = stats.get(report.localCandidateId);
+                if (localCandidate) {
+                  console.log("Using TURN:", localCandidate.candidateType === 'relay');
+                }
+              }
             }
-          }
+          });
         });
-      }).catch(err => console.warn("Could not get stats:", err));
+      }
     }
     
     switch (state) {
@@ -265,21 +257,13 @@ function setupPeerConnectionListeners() {
     }
   };
 
-  // Signaling state handler
   peerConnection.onsignalingstatechange = () => {
-    console.log("Signaling state changed to:", peerConnection.signalingState);
     if (peerConnection.signalingState === "stable") {
       processBufferedCandidates();
     }
   };
-  
-  // Connection state handler for more detailed logging
-  peerConnection.onconnectionstatechange = () => {
-    console.log("Connection state changed to:", peerConnection.connectionState);
-  };
 }
 
-// Enhanced ICE restart mechanism
 async function attemptIceRestart() {
   if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
     updateConnectionStatus("Connection failed. Please refresh.");
@@ -290,10 +274,8 @@ async function attemptIceRestart() {
   updateConnectionStatus(`Reconnecting (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`);
   
   try {
-    // Ensure fresh credentials before restart
     await ensureFreshCredentials();
     
-    // Use restartIce if available, otherwise create new offer
     if (peerConnection.restartIce) {
       peerConnection.restartIce();
     }
@@ -308,9 +290,6 @@ async function attemptIceRestart() {
           sdp: offer.sdp
         }
       });
-    } else {
-      // For callee, we need to wait for the new offer from the caller
-      console.log("Callee waiting for new offer after ICE restart");
     }
   } catch (err) {
     console.error("ICE restart failed:", err);
@@ -318,89 +297,26 @@ async function attemptIceRestart() {
   }
 }
 
-// Buffer ICE candidates until remote description is set and signaling state is stable
-function handleIncomingIceCandidate(candidate) {
-  if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
-    addIceCandidateSafely(candidate);
-  } else {
-    console.log("Buffering ICE candidate as remote description not set or signalingState not stable.");
-    iceCandidateBuffer.push(candidate);
-  }
-}
-
-// Helper function to safely add ICE candidates
-async function addIceCandidateSafely(candidate) {
-  try {
-    await peerConnection.addIceCandidate(candidate);
-    console.log("Successfully added ICE candidate");
-    return true;
-  } catch (e) {
-    console.error("Error adding ICE candidate:", e);
-    return false;
-  }
-}
-
-// Process buffered ICE candidates
 async function processBufferedCandidates() {
   if (iceCandidateBuffer.length > 0) {
     console.log(`Processing ${iceCandidateBuffer.length} buffered ICE candidates`);
     for (const candidate of iceCandidateBuffer) {
-      await addIceCandidateSafely(candidate);
+      try {
+        await peerConnection.addIceCandidate(candidate);
+      } catch (e) {
+        console.error("Error adding buffered ICE candidate:", e);
+      }
     }
     iceCandidateBuffer = [];
   }
 }
 
-// Helper function to setup media stream
-async function setupMediaStream() {
-  if (!localStream) {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-  }
-}
-
-// Toggle camera function
-function toggleCamera() {
-  if (localStream) {
-    const videoTracks = localStream.getVideoTracks();
-    if (videoTracks.length > 0) {
-      videoTracks[0].enabled = !videoTracks[0].enabled;
-      const icon = videoTracks[0].enabled
-        ? '<i class="fas fa-video"></i>'
-        : '<i class="fas fa-video-slash"></i>';
-      document.getElementById("toggleVideo").innerHTML = icon;
-    }
-  }
-}
-
-// Connection timer functions
-function startConnectionTimer() {
-  clearConnectionTimer();
-  connectionTimer = setTimeout(() => {
-    if (peerConnection && 
-        (peerConnection.iceConnectionState === 'checking' || 
-         peerConnection.iceConnectionState === 'disconnected')) {
-      console.warn("Connection taking too long - attempting recovery");
-      attemptIceRestart();
-    }
-  }, MAX_CONNECTION_TIME);
-}
-
-function clearConnectionTimer() {
-  if (connectionTimer) {
-    clearTimeout(connectionTimer);
-    connectionTimer = null;
-  }
-}
-
-// Start a new video call
+// Call management
 async function startVideoCall() {
   try {
-    // Ensure fresh credentials before starting call
-    await ensureFreshCredentials();
-    
     isCaller = true;
     restartAttempts = 0;
+    await ensureFreshCredentials();
     await setupMediaStream();
     
     peerConnection = createPeerConnection();
@@ -410,26 +326,17 @@ async function startVideoCall() {
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    const roomWithOffer = {
+    roomRef = await db.collection("rooms").add({
       offer: {
         type: offer.type,
         sdp: offer.sdp
       }
-    };
+    });
+    roomId = roomRef.id;
 
-    if (roomId) {
-      roomRef = db.collection("rooms").doc(roomId);
-      await roomRef.set(roomWithOffer, { merge: true });
-    } else {
-      roomRef = await db.collection("rooms").add(roomWithOffer);
-      roomId = roomRef.id;
-    }
-
-    window.currentRoom = roomId;
     currentRoomDisplay.innerText = `Room ID: ${roomId}`;
     document.getElementById("hangUp").disabled = false;
 
-    // Initialize candidates collections
     callerCandidatesCollection = roomRef.collection("callerCandidates");
     calleeCandidatesCollection = roomRef.collection("calleeCandidates");
 
@@ -439,18 +346,8 @@ async function startVideoCall() {
     roomRef.onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (data?.answer) {
-        try {
-          // Handle ICE restart for callee
-          if (!peerConnection.currentRemoteDescription || data.offer.type === 'offer') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            remoteDescriptionSet = true;
-            updateConnectionStatus("Connected", false);
-            processBufferedCandidates();
-          }
-        } catch (error) {
-          console.error("Error setting remote description:", error);
-          updateConnectionStatus("Error processing answer");
-        }
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        remoteDescriptionSet = true;
       }
     });
 
@@ -466,62 +363,45 @@ async function startVideoCall() {
   } catch (error) {
     console.error("Error starting video call:", error);
     updateConnectionStatus("Failed to start call");
-    alert("Failed to start video call. Please check your media device access and internet.");
   }
 }
 
-// Join an existing room
 async function joinRoom(roomIdInput) {
   try {
-    // Ensure fresh credentials before joining room
-    await ensureFreshCredentials();
-    
     isCaller = false;
     restartAttempts = 0;
+    await ensureFreshCredentials();
+    
     roomRef = db.collection("rooms").doc(roomIdInput);
     const roomSnapshot = await roomRef.get();
 
     if (!roomSnapshot.exists) {
-      alert("The room ID you entered does not exist.");
+      alert("Room not found");
       return;
     }
 
-    console.log(`Joining room: ${roomIdInput}`);
-    currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
     roomId = roomIdInput;
+    currentRoomDisplay.innerText = `Room ID: ${roomId}`;
 
     await setupMediaStream();
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
-    // Initialize candidates collections
-    callerCandidatesCollection = roomRef.collection("callerCandidates");
-    calleeCandidatesCollection = roomRef.collection("calleeCandidates");
-
-    updateConnectionStatus("Processing offer...");
     const offer = roomSnapshot.data().offer;
-    
-    // Handle ICE restart for callee
-    if (!peerConnection.currentRemoteDescription || offer.type === 'offer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      
-      updateConnectionStatus("Creating answer...");
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
-      const roomWithAnswer = {
-        answer: {
-          type: answer.type,
-          sdp: answer.sdp
-        }
-      };
+    updateConnectionStatus("Creating answer...");
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
 
-      await roomRef.update(roomWithAnswer);
-      console.log("Answer sent to Firestore.");
-      remoteDescriptionSet = true;
-      updateConnectionStatus("Connected", false);
-    }
+    await roomRef.update({
+      answer: {
+        type: answer.type,
+        sdp: answer.sdp
+      }
+    });
 
+    remoteDescriptionSet = true;
     startConnectionTimer();
 
     callerCandidatesCollection.onSnapshot(snapshot => {
@@ -538,25 +418,57 @@ async function joinRoom(roomIdInput) {
   } catch (error) {
     console.error("Error joining room:", error);
     updateConnectionStatus("Failed to join room");
-    alert("Failed to join the room. Check your Room ID or connection.");
   }
 }
 
-// Hang up the call
-async function hangUp() {
-  console.log("Hanging up the call...");
-  
-  clearConnectionTimer();
-  updateConnectionStatus("Call ended", false);
+// Helper functions
+async function setupMediaStream() {
+  if (!localStream) {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+  }
+}
 
+function handleIncomingIceCandidate(candidate) {
+  if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
+    peerConnection.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate:", e));
+  } else {
+    iceCandidateBuffer.push(candidate);
+  }
+}
+
+function startConnectionTimer() {
+  clearConnectionTimer();
+  connectionTimer = setTimeout(() => {
+    if (peerConnection?.iceConnectionState === 'checking') {
+      attemptIceRestart();
+    }
+  }, MAX_CONNECTION_TIME);
+}
+
+function clearConnectionTimer() {
+  if (connectionTimer) {
+    clearTimeout(connectionTimer);
+    connectionTimer = null;
+  }
+}
+
+// UI Controls
+function toggleCamera() {
+  const videoTracks = localStream?.getVideoTracks();
+  if (videoTracks?.length) {
+    videoTracks[0].enabled = !videoTracks[0].enabled;
+    document.getElementById("toggleVideo").innerHTML = videoTracks[0].enabled ? 
+      '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+  }
+}
+
+async function hangUp() {
+  clearConnectionTimer();
+  
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
-  }
-
-  if (remoteStream) {
-    remoteStream.getTracks().forEach(track => track.stop());
-    remoteStream = new MediaStream();
   }
 
   if (peerConnection) {
@@ -564,90 +476,31 @@ async function hangUp() {
     peerConnection = null;
   }
 
-  iceCandidateBuffer = [];
-
-  // Clean up Firestore candidates
-  if (callerCandidatesCollection) {
-    try {
-      const snapshot = await callerCandidatesCollection.get();
-      snapshot.forEach(doc => doc.ref.delete());
-    } catch (error) {
-      console.error("Error deleting caller candidates:", error);
-    }
-  }
-
-  if (calleeCandidatesCollection) {
-    try {
-      const snapshot = await calleeCandidatesCollection.get();
-      snapshot.forEach(doc => doc.ref.delete());
-    } catch (error) {
-      console.error("Error deleting callee candidates:", error);
-    }
-  }
-
-  if (roomRef) {
-    if (isCaller) {
-      try {
-        await roomRef.delete();
-      } catch (error) {
-        console.error("Error deleting room:", error);
-      }
-    }
-    roomRef = null;
+  if (roomRef && isCaller) {
+    await roomRef.delete();
   }
 
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
-  
   currentRoomDisplay.innerText = "";
-  document.getElementById("startCall").disabled = true;
-  document.getElementById("joinCall").disabled = true;
-  document.getElementById("hangUp").disabled = true;
-  document.getElementById("muteAudio").disabled = true;
-  document.getElementById("toggleVideo").disabled = true;
-
-  roomId = null;
-  isCaller = false;
-  remoteDescriptionSet = false;
-  restartAttempts = 0;
-
-  console.log("Call ended and all resources cleaned up.");
+  updateConnectionStatus("Call ended", false);
 }
 
 // Event listeners
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("openMedia").onclick = openUserMedia;
   document.getElementById("startCall").onclick = startVideoCall;
   document.getElementById("joinCall").onclick = async () => {
-    const inputId = prompt("Enter Room ID:");
-    if (inputId) {
-      await joinRoom(inputId);
-    }
+    const roomId = prompt("Enter Room ID:");
+    if (roomId) await joinRoom(roomId);
   };
   document.getElementById("hangUp").onclick = hangUp;
-
+  document.getElementById("toggleVideo").onclick = toggleCamera;
   document.getElementById("muteAudio").onclick = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      const icon = localStream.getAudioTracks()[0].enabled
-        ? '<i class="fas fa-microphone"></i>'
-        : '<i class="fas fa-microphone-slash"></i>';
-      document.getElementById("muteAudio").innerHTML = icon;
+    const audioTracks = localStream?.getAudioTracks();
+    if (audioTracks?.length) {
+      audioTracks[0].enabled = !audioTracks[0].enabled;
+      document.getElementById("muteAudio").innerHTML = audioTracks[0].enabled ?
+        '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
     }
   };
-
-  document.getElementById("toggleVideo").onclick = toggleCamera;
-
-  // Copy room ID to clipboard
-  if (copyRoomIdBtn) {
-    copyRoomIdBtn.addEventListener("click", () => {
-      if (roomId) {
-        navigator.clipboard.writeText(roomId)
-          .then(() => alert("Room ID copied to clipboard"))
-          .catch(err => alert("Failed to copy Room ID: " + err));
-      }
-    });
-  }
 });
