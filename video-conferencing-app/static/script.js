@@ -28,6 +28,8 @@ let calleeCandidatesCollection;
 let restartAttempts = 0;
 const MAX_RESTART_ATTEMPTS = 2;
 const MAX_CONNECTION_TIME = 10000; // 10 seconds
+let lastCredentialsFetchTime = 0;
+let iceServers = null;
 
 // DOM elements
 const localVideo = document.getElementById("localVideo");
@@ -40,37 +42,73 @@ const copyRoomIdBtn = document.getElementById("copyRoomIdBtn");
 const currentRoomDisplay = document.getElementById("currentRoom");
 const connectionStateDisplay = document.getElementById("connectionState");
 
-// ICE Servers configuration
-const iceServers = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    {
-      urls: "turn:relay.metered.ca:443",
-      username: "openai",
-      credential: "openai123"
-    }
-  ]
-};
-
 // Initialize video call
 function initializeVideoCall() {
   console.log("Video call initialized");
   updateConnectionStatus("Ready to connect", false);
 
-  navigator.permissions?.query?.({ name: "camera" })
-    .then(permissionStatus => {
-      if (permissionStatus.state === "granted") {
+  // Fetch TURN credentials immediately
+  fetchTurnCredentials().then(() => {
+    navigator.permissions?.query?.({ name: "camera" })
+      .then(permissionStatus => {
+        if (permissionStatus.state === "granted") {
+          openUserMedia();
+        } else {
+          console.log("Camera permission not yet granted. Waiting for user interaction.");
+        }
+      })
+      .catch(err => {
+        console.warn("Permission API not supported or error:", err);
         openUserMedia();
-      } else {
-        console.log("Camera permission not yet granted. Waiting for user interaction.");
-      }
-    })
-    .catch(err => {
-      console.warn("Permission API not supported or error:", err);
-      openUserMedia();
-    });
+      });
+  });
+}
+
+// Fetch TURN credentials from Metered.ca
+async function fetchTurnCredentials() {
+  try {
+    const response = await fetch('/api/turn-credentials');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch TURN credentials: ${response.statusText}`);
+    }
+    
+    const turnServers = await response.json();
+    console.log("Received temporary TURN credentials (valid for 1 hour)");
+    
+    // Set up ICE servers with both STUN and TURN
+    iceServers = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.google.com:19302" },
+        { urls: "stun:stun2.google.com:19302" },
+        ...turnServers
+      ]
+    };
+    
+    console.log("Updated ICE servers configuration");
+    lastCredentialsFetchTime = Date.now();
+    return true;
+  } catch (error) {
+    console.error("Error fetching TURN credentials:", error);
+    // Fallback to STUN-only if TURN credentials fetch fails
+    iceServers = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.google.com:19302" },
+        { urls: "stun:stun2.google.com:19302" }
+      ]
+    };
+    return false;
+  }
+}
+
+// Ensure credentials are fresh before a call
+async function ensureFreshCredentials() {
+  // If it's been more than 50 minutes since last fetch, get new credentials
+  const timeSinceLastFetch = Date.now() - lastCredentialsFetchTime;
+  if (!lastCredentialsFetchTime || timeSinceLastFetch > 50 * 60 * 1000) { // 50 minutes
+    await fetchTurnCredentials();
+  }
 }
 
 // Update connection status UI
@@ -124,6 +162,11 @@ async function openUserMedia() {
 
 // Helper function to create peer connection
 function createPeerConnection() {
+  if (!iceServers) {
+    console.error("ICE servers not configured");
+    return null;
+  }
+  
   const pc = new RTCPeerConnection(iceServers);
   
   // Add local tracks
@@ -156,9 +199,16 @@ function setupPeerConnectionListeners() {
   peerConnection.onicecandidate = event => {
     if (event.candidate) {
       console.log("New ICE candidate generated:", event.candidate);
+      
+      // Log if this is a TURN candidate (relay)
+      if (event.candidate.candidate.includes('relay')) {
+        console.log("TURN server being used for this connection");
+      }
+      
       if (roomId) {
         const collectionName = isCaller ? "callerCandidates" : "calleeCandidates";
         db.collection("rooms").doc(roomId).collection(collectionName).add(event.candidate.toJSON())
+          .then(() => console.log("ICE candidate sent successfully"))
           .catch(e => console.error("Error sending ICE candidate:", e));
       }
     } else {
@@ -171,6 +221,22 @@ function setupPeerConnectionListeners() {
     const state = peerConnection.iceConnectionState;
     console.log("ICE connection state changed to:", state);
     updateConnectionState(state);
+    
+    // If connected, check what type of candidate pair was selected
+    if (state === 'connected' || state === 'completed') {
+      peerConnection.getStats().then(stats => {
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.selected) {
+            console.log("Selected candidate pair:", report);
+            if (report.localCandidateId) {
+              const localCandidate = stats.get(report.localCandidateId);
+              console.log("Local candidate:", localCandidate);
+              console.log("Connection using TURN?", localCandidate.candidateType === 'relay');
+            }
+          }
+        });
+      }).catch(err => console.warn("Could not get stats:", err));
+    }
     
     switch (state) {
       case "connected":
@@ -206,6 +272,11 @@ function setupPeerConnectionListeners() {
       processBufferedCandidates();
     }
   };
+  
+  // Connection state handler for more detailed logging
+  peerConnection.onconnectionstatechange = () => {
+    console.log("Connection state changed to:", peerConnection.connectionState);
+  };
 }
 
 // Enhanced ICE restart mechanism
@@ -219,6 +290,9 @@ async function attemptIceRestart() {
   updateConnectionStatus(`Reconnecting (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`);
   
   try {
+    // Ensure fresh credentials before restart
+    await ensureFreshCredentials();
+    
     // Use restartIce if available, otherwise create new offer
     if (peerConnection.restartIce) {
       peerConnection.restartIce();
@@ -234,6 +308,9 @@ async function attemptIceRestart() {
           sdp: offer.sdp
         }
       });
+    } else {
+      // For callee, we need to wait for the new offer from the caller
+      console.log("Callee waiting for new offer after ICE restart");
     }
   } catch (err) {
     console.error("ICE restart failed:", err);
@@ -319,6 +396,9 @@ function clearConnectionTimer() {
 // Start a new video call
 async function startVideoCall() {
   try {
+    // Ensure fresh credentials before starting call
+    await ensureFreshCredentials();
+    
     isCaller = true;
     restartAttempts = 0;
     await setupMediaStream();
@@ -393,6 +473,9 @@ async function startVideoCall() {
 // Join an existing room
 async function joinRoom(roomIdInput) {
   try {
+    // Ensure fresh credentials before joining room
+    await ensureFreshCredentials();
+    
     isCaller = false;
     restartAttempts = 0;
     roomRef = db.collection("rooms").doc(roomIdInput);
