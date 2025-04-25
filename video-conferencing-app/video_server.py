@@ -119,4 +119,4 @@ async def read_index():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("video_server:app", host="0.0.0.0", port=port)
