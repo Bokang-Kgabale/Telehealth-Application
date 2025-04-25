@@ -22,7 +22,7 @@ origins = [
     "http://localhost:3000",
     "http://192.168.2.180:3001",
     "http://localhost:3001",
-    "https://your-render-app.onrender.com"  # Add your production frontend URL
+    "https://telehealth-application.onrender.com"  # Add your production frontend URL
 ]
 
 app.add_middleware(
@@ -61,8 +61,10 @@ async def get_turn_credentials(request: Request):
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://metered.ca/api/v1/turn/credentials?apiKey={METERED_API_KEY}&lifetime=3600",
-                timeout=10.0
+                # Use www.metered.ca instead of metered.ca
+                f"https://www.metered.ca/api/v1/turn/credentials?apiKey={METERED_API_KEY}&lifetime=3600",
+                timeout=10.0,
+                follow_redirects=True  # Explicitly enable redirect following
             )
             response.raise_for_status()
             return JSONResponse(content=response.json())
