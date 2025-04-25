@@ -1,28 +1,22 @@
-try:
-    import os
-    import json
-    import httpx
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import HTMLResponse, JSONResponse
-    from fastapi.middleware.cors import CORSMiddleware
-    from typing import List
-    import uvicorn
-except ImportError as e:
-    print(f"Missing required package: {e.name}")
-    print("Install dependencies with: pip install -r requirements.txt")
-    raise
+import os
+import json
+import httpx
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List
+import uvicorn
 
-# Rest of your existing code...
 # Initialize FastAPI with CORS
 app = FastAPI()
 
-# CORS Configuration (adjust origins as needed)
+# CORS Configuration
 origins = [
     "http://localhost:3000",
     "http://192.168.2.180:3001",
     "http://localhost:3001",
-    "https://telehealth-application.onrender.com"  # Add your production frontend URL
+    "https://telehealth-application.onrender.com"
 ]
 
 app.add_middleware(
@@ -51,9 +45,9 @@ async def get_firebase_config():
             status_code=500
         )
 
-# TURN Credentials Endpoint
+# TURN Credentials Endpoint (Updated for Metered.ca v2 API)
 @app.get("/api/turn-credentials")
-async def get_turn_credentials(request: Request):
+async def get_turn_credentials():
     try:
         METERED_API_KEY = os.getenv("METERED_API_KEY")
         if not METERED_API_KEY:
@@ -61,19 +55,21 @@ async def get_turn_credentials(request: Request):
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                # Use www.metered.ca instead of metered.ca
-                f"https://www.metered.ca/api/v1/turn/credentials?apiKey={METERED_API_KEY}&lifetime=3600",
-                timeout=10.0,
-                follow_redirects=True  # Explicitly enable redirect following
+                "https://video-call-turn-server.metered.live/api/v1/turn/credentials",
+                params={"apiKey": METERED_API_KEY},
+                timeout=10.0
             )
             response.raise_for_status()
-            return JSONResponse(content=response.json())
+            return response.json()
     except Exception as e:
         print(f"TURN credentials error: {e}")
-        return JSONResponse(
-            content={"error": "Failed to fetch TURN credentials"},
-            status_code=500
-        )
+        # Fallback to STUN servers
+        return JSONResponse(content={
+            "iceServers": [
+                {"urls": "stun:stun.l.google.com:19302"},
+                {"urls": "stun:stun1.l.google.com:19302"}
+            ]
+        })
 
 # WebSocket Manager
 class ConnectionManager:

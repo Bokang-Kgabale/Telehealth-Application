@@ -46,7 +46,6 @@ const connectionStateDisplay = document.getElementById("connectionState");
 async function fetchTurnCredentials() {
   try {
     console.log("Fetching TURN credentials...");
-    
     const response = await fetch('/api/turn-credentials');
     
     if (!response.ok) {
@@ -61,9 +60,9 @@ async function fetchTurnCredentials() {
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.google.com:19302" },
-        { urls: "stun:stun2.google.com:19302" },
-        ...turnServers.iceServers || []
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        ...(turnServers.iceServers || turnServers || [])
       ]
     };
     
@@ -72,11 +71,10 @@ async function fetchTurnCredentials() {
     return true;
   } catch (error) {
     console.error("Error fetching TURN credentials:", error);
-    console.warn("Continuing with STUN servers only");
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
         { urls: "stun:stun2.google.com:19302" }
       ]
     };
@@ -166,7 +164,10 @@ function createPeerConnection() {
     return null;
   }
   
-  const pc = new RTCPeerConnection(iceServers);
+  const pc = new RTCPeerConnection({
+    iceServers: iceServers.iceServers || iceServers,
+    iceTransportPolicy: 'all' // Use 'relay' in production to force TURN
+  });
   
   localStream.getTracks().forEach(track => {
     pc.addTrack(track, localStream);
@@ -213,21 +214,19 @@ function setupPeerConnectionListeners() {
     updateConnectionState(state);
     
     if (state === 'connected' || state === 'completed') {
-      if (peerConnection.getStats) {
-        peerConnection.getStats().then(stats => {
-          stats.forEach(report => {
-            if (report.type === 'candidate-pair' && report.selected) {
-              console.log("Selected candidate pair:", report);
-              if (report.localCandidateId) {
-                const localCandidate = stats.get(report.localCandidateId);
-                if (localCandidate) {
-                  console.log("Using TURN:", localCandidate.candidateType === 'relay');
-                }
+      peerConnection.getStats().then(stats => {
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.selected) {
+            console.log("Selected candidate pair:", report);
+            if (report.localCandidateId) {
+              const localCandidate = stats.get(report.localCandidateId);
+              if (localCandidate) {
+                console.log("Using TURN:", localCandidate.candidateType === 'relay');
               }
             }
-          });
+          }
         });
-      }
+      }).catch(err => console.error("Error getting stats:", err));
     }
     
     switch (state) {
