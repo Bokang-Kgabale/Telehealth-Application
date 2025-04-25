@@ -1,13 +1,19 @@
-import os
-import json
-import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-import uvicorn
+try:
+    import os
+    import json
+    import httpx
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import HTMLResponse, JSONResponse
+    from fastapi.middleware.cors import CORSMiddleware
+    from typing import List
+    import uvicorn
+except ImportError as e:
+    print(f"Missing required package: {e.name}")
+    print("Install dependencies with: pip install -r requirements.txt")
+    raise
 
+# Rest of your existing code...
 # Initialize FastAPI with CORS
 app = FastAPI()
 
