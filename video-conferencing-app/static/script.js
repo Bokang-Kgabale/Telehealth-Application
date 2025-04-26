@@ -41,6 +41,12 @@ const connectionQuality = document.getElementById("connectionQuality");
 const copyRoomIdBtn = document.getElementById("copyRoomIdBtn");
 const currentRoomDisplay = document.getElementById("currentRoom");
 const connectionStateDisplay = document.getElementById("connectionState");
+const openMediaBtn = document.getElementById("openMedia");
+const startCallBtn = document.getElementById("startCall");
+const joinCallBtn = document.getElementById("joinCall");
+const hangUpBtn = document.getElementById("hangUp");
+const toggleVideoBtn = document.getElementById("toggleVideo");
+const muteAudioBtn = document.getElementById("muteAudio");
 
 // Enhanced TURN credentials handling
 async function fetchTurnCredentials() {
@@ -90,66 +96,63 @@ async function ensureFreshCredentials() {
 }
 
 // Initialize video call
-async function initializeVideoCall() {
+function initializeVideoCall() {
   console.log("Video call initialized");
   updateConnectionStatus("Ready to connect", false);
-
-  await fetchTurnCredentials();
-
-  navigator.permissions?.query?.({ name: "camera" })
-    .then(permissionStatus => {
-      if (permissionStatus.state === "granted") {
-        openUserMedia();
-      } else {
-        console.log("Camera permission not yet granted. Waiting for user interaction.");
-      }
-    })
-    .catch(err => {
-      console.warn("Permission API not supported or error:", err);
-      openUserMedia();
-    });
+  setupUI();
 }
 
-// Update connection status UI
-function updateConnectionStatus(text, show = true) {
-  statusText.textContent = text;
-  if (show) {
-    connectionStatus.classList.add("visible");
-  } else {
-    connectionStatus.classList.remove("visible");
+// Set up UI event listeners
+function setupUI() {
+  if (openMediaBtn) {
+    openMediaBtn.addEventListener("click", openUserMedia);
   }
+  
+  startCallBtn.addEventListener("click", startVideoCall);
+  joinCallBtn.addEventListener("click", async () => {
+    const inputId = prompt("Enter Room ID:");
+    if (inputId) await joinRoom(inputId);
+  });
+  hangUpBtn.addEventListener("click", hangUp);
+  toggleVideoBtn.addEventListener("click", toggleCamera);
+  muteAudioBtn.addEventListener("click", toggleMic);
 }
 
-function updateConnectionQuality(quality) {
-  connectionQuality.className = "connection-quality";
-  connectionQuality.classList.add(quality);
-  const qualityText = {
-    good: "Good connection",
-    medium: "Medium connection",
-    poor: "Poor connection"
-  };
-  connectionQuality.innerHTML = `<i class="fas fa-circle"></i> <span>${qualityText[quality]}</span>`;
-}
-
-function updateConnectionState(state) {
-  if (connectionStateDisplay) {
-    connectionStateDisplay.textContent = `Connection State: ${state}`;
+// Toggle microphone function
+function toggleMic() {
+  if (localStream) {
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      audioTracks[0].enabled = !audioTracks[0].enabled;
+      const icon = audioTracks[0].enabled
+        ? '<i class="fas fa-microphone"></i>'
+        : '<i class="fas fa-microphone-slash"></i>';
+      muteAudioBtn.innerHTML = icon;
+    }
   }
 }
 
 // Request user media
 async function openUserMedia() {
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localStream = await navigator.mediaDevices.getUserMedia({ 
+      video: true, 
+      audio: true 
+    });
     localVideo.srcObject = localStream;
 
-    document.getElementById("startCall").disabled = false;
-    document.getElementById("joinCall").disabled = false;
-    document.getElementById("muteAudio").disabled = false;
-    document.getElementById("toggleVideo").disabled = false;
+    startCallBtn.disabled = false;
+    joinCallBtn.disabled = false;
+    muteAudioBtn.disabled = false;
+    toggleVideoBtn.disabled = false;
 
     console.log("User media opened");
     updateConnectionStatus("Ready to connect", false);
+    
+    // Hide open media button after successful access
+    if (openMediaBtn) {
+      openMediaBtn.style.display = 'none';
+    }
   } catch (error) {
     console.error("Error accessing media devices:", error);
     updateConnectionStatus("Media access failed");
@@ -334,7 +337,7 @@ async function startVideoCall() {
     roomId = roomRef.id;
 
     currentRoomDisplay.innerText = `Room ID: ${roomId}`;
-    document.getElementById("hangUp").disabled = false;
+    hangUpBtn.disabled = false;
 
     callerCandidatesCollection = roomRef.collection("callerCandidates");
     calleeCandidatesCollection = roomRef.collection("calleeCandidates");
@@ -375,12 +378,13 @@ async function joinRoom(roomIdInput) {
     const roomSnapshot = await roomRef.get();
 
     if (!roomSnapshot.exists) {
-      alert("Room not found");
+      alert("The room ID you entered does not exist.");
       return;
     }
 
+    console.log(`Joining room: ${roomIdInput}`);
+    currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
     roomId = roomIdInput;
-    currentRoomDisplay.innerText = `Room ID: ${roomId}`;
 
     await setupMediaStream();
     peerConnection = createPeerConnection();
@@ -412,7 +416,7 @@ async function joinRoom(roomIdInput) {
       });
     });
 
-    document.getElementById("hangUp").disabled = false;
+    hangUpBtn.disabled = false;
 
   } catch (error) {
     console.error("Error joining room:", error);
@@ -457,8 +461,10 @@ function toggleCamera() {
   const videoTracks = localStream?.getVideoTracks();
   if (videoTracks?.length) {
     videoTracks[0].enabled = !videoTracks[0].enabled;
-    document.getElementById("toggleVideo").innerHTML = videoTracks[0].enabled ? 
-      '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+    const icon = videoTracks[0].enabled
+      ? '<i class="fas fa-video"></i>'
+      : '<i class="fas fa-video-slash"></i>';
+    toggleVideoBtn.innerHTML = icon;
   }
 }
 
@@ -482,24 +488,21 @@ async function hangUp() {
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
   currentRoomDisplay.innerText = "";
+  
+  // Reset UI state
+  startCallBtn.disabled = true;
+  joinCallBtn.disabled = true;
+  hangUpBtn.disabled = true;
+  muteAudioBtn.disabled = true;
+  toggleVideoBtn.disabled = true;
+  
+  // Show open media button again
+  if (openMediaBtn) {
+    openMediaBtn.style.display = 'block';
+  }
+
   updateConnectionStatus("Call ended", false);
 }
 
-// Event listeners
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("startCall").onclick = startVideoCall;
-  document.getElementById("joinCall").onclick = async () => {
-    const roomId = prompt("Enter Room ID:");
-    if (roomId) await joinRoom(roomId);
-  };
-  document.getElementById("hangUp").onclick = hangUp;
-  document.getElementById("toggleVideo").onclick = toggleCamera;
-  document.getElementById("muteAudio").onclick = () => {
-    const audioTracks = localStream?.getAudioTracks();
-    if (audioTracks?.length) {
-      audioTracks[0].enabled = !audioTracks[0].enabled;
-      document.getElementById("muteAudio").innerHTML = audioTracks[0].enabled ?
-        '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
-    }
-  };
-});
+// Initialize the application
+document.addEventListener("DOMContentLoaded", initializeVideoCall);
