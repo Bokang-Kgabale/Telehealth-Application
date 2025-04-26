@@ -416,6 +416,9 @@ async function joinRoom(roomIdInput) {
     currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
     roomId = roomIdInput;
 
+    callerCandidatesCollection = roomRef.collection("callerCandidates");
+    calleeCandidatesCollection = roomRef.collection("calleeCandidates");
+
     await setupMediaStream();
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
