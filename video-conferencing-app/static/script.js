@@ -38,9 +38,7 @@ remoteVideo.srcObject = remoteStream;
 const connectionStatus = document.getElementById("connectionStatus");
 const statusText = document.getElementById("statusText");
 const connectionQuality = document.getElementById("connectionQuality");
-const copyRoomIdBtn = document.getElementById("copyRoomIdBtn");
 const currentRoomDisplay = document.getElementById("currentRoom");
-const connectionStateDisplay = document.getElementById("connectionState");
 const openMediaBtn = document.getElementById("openMedia");
 const startCallBtn = document.getElementById("startCall");
 const joinCallBtn = document.getElementById("joinCall");
@@ -94,20 +92,16 @@ async function ensureFreshCredentials() {
     await fetchTurnCredentials();
   }
 }
+
 // Functions for UI status updates
 function updateConnectionStatus(message, isConnecting = true) {
   statusText.textContent = message;
-  connectionStatus.className = isConnecting ? "connecting" : "ready";
+  connectionStatus.className = isConnecting ? "connection-status connecting" : "connection-status ready";
   console.log(`Connection status: ${message}`);
 }
 
-function updateConnectionState(state) {
-  connectionStateDisplay.textContent = state;
-  console.log(`Connection state updated: ${state}`);
-}
-
 function updateConnectionQuality(quality) {
-  connectionQuality.className = `quality ${quality}`;
+  connectionQuality.className = `connection-quality ${quality}`;
   
   let qualityText = "Unknown";
   switch (quality) {
@@ -122,9 +116,10 @@ function updateConnectionQuality(quality) {
       break;
   }
   
-  connectionQuality.textContent = qualityText;
+  connectionQuality.innerHTML = `<i class="fas fa-circle"></i><span>${qualityText}</span>`;
   console.log(`Connection quality: ${qualityText}`);
 }
+
 // Initialize video call
 function initializeVideoCall() {
   console.log("Video call initialized");
@@ -244,7 +239,35 @@ function setupPeerConnectionListeners() {
   peerConnection.oniceconnectionstatechange = () => {
     const state = peerConnection.iceConnectionState;
     console.log("ICE connection state:", state);
-    updateConnectionState(state);
+    
+    let statusMessage = "Ready to connect";
+    switch (state) {
+      case "connected":
+      case "completed":
+        statusMessage = "Connected";
+        updateConnectionQuality("good");
+        clearConnectionTimer();
+        break;
+      case "checking":
+        statusMessage = "Connecting...";
+        updateConnectionQuality("medium");
+        break;
+      case "disconnected":
+        statusMessage = "Network issues detected...";
+        updateConnectionQuality("poor");
+        setTimeout(() => {
+          if (peerConnection?.iceConnectionState === 'disconnected') {
+            attemptIceRestart();
+          }
+        }, 2000);
+        break;
+      case "failed":
+        statusMessage = "Connection failed";
+        updateConnectionQuality("poor");
+        attemptIceRestart();
+        break;
+    }
+    updateConnectionStatus(statusMessage, state !== "connected");
     
     if (state === 'connected' || state === 'completed') {
       peerConnection.getStats().then(stats => {
@@ -260,32 +283,6 @@ function setupPeerConnectionListeners() {
           }
         });
       }).catch(err => console.error("Error getting stats:", err));
-    }
-    
-    switch (state) {
-      case "connected":
-        updateConnectionStatus("Connected", false);
-        updateConnectionQuality("good");
-        clearConnectionTimer();
-        break;
-      case "checking":
-        updateConnectionStatus("Connecting...");
-        updateConnectionQuality("medium");
-        break;
-      case "disconnected":
-        updateConnectionStatus("Network issues detected...");
-        updateConnectionQuality("poor");
-        setTimeout(() => {
-          if (peerConnection?.iceConnectionState === 'disconnected') {
-            attemptIceRestart();
-          }
-        }, 2000);
-        break;
-      case "failed":
-        updateConnectionStatus("Connection failed");
-        updateConnectionQuality("poor");
-        attemptIceRestart();
-        break;
     }
   };
 
