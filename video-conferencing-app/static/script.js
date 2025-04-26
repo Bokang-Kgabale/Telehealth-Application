@@ -94,7 +94,37 @@ async function ensureFreshCredentials() {
     await fetchTurnCredentials();
   }
 }
+// Functions for UI status updates
+function updateConnectionStatus(message, isConnecting = true) {
+  statusText.textContent = message;
+  connectionStatus.className = isConnecting ? "connecting" : "ready";
+  console.log(`Connection status: ${message}`);
+}
 
+function updateConnectionState(state) {
+  connectionStateDisplay.textContent = state;
+  console.log(`Connection state updated: ${state}`);
+}
+
+function updateConnectionQuality(quality) {
+  connectionQuality.className = `quality ${quality}`;
+  
+  let qualityText = "Unknown";
+  switch (quality) {
+    case "good":
+      qualityText = "Good";
+      break;
+    case "medium":
+      qualityText = "Medium";
+      break;
+    case "poor":
+      qualityText = "Poor";
+      break;
+  }
+  
+  connectionQuality.textContent = qualityText;
+  console.log(`Connection quality: ${qualityText}`);
+}
 // Initialize video call
 function initializeVideoCall() {
   console.log("Video call initialized");
