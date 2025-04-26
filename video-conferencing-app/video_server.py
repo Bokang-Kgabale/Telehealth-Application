@@ -45,15 +45,15 @@ async def get_firebase_config():
             status_code=500
         )
 
-# On your backend server (Flask example)
-@app.route('/api/turn-credentials', methods=['GET'])
+# TURN Credentials Endpoint (Updated for Metered.ca v2 API)
+@app.get("/api/turn-credentials")
 async def get_turn_credentials():
-    METERED_API_KEY = os.getenv("METERED_API_KEY")
-    if not METERED_API_KEY:
-        return response.json({"error": "METERED_API_KEY not configured"}), 500
-    
-    async with httpx.AsyncClient() as client:
-        try:
+    try:
+        METERED_API_KEY = os.getenv("METERED_API_KEY")
+        if not METERED_API_KEY:
+            raise ValueError("METERED_API_KEY not configured")
+
+        async with httpx.AsyncClient() as client:
             response = await client.get(
                 "https://video-call-turn-server.metered.live/api/v1/turn/credentials",
                 params={"apiKey": METERED_API_KEY},
@@ -61,8 +61,15 @@ async def get_turn_credentials():
             )
             response.raise_for_status()
             return response.json()
-        except Exception as e:
-            return response.json({"error": f"Failed to fetch TURN credentials: {str(e)}"}), 500
+    except Exception as e:
+        print(f"TURN credentials error: {e}")
+        # Fallback to STUN servers
+        return JSONResponse(content={
+            "iceServers": [
+                {"urls": "stun:stun.l.google.com:19302"},
+                {"urls": "stun:stun1.l.google.com:19302"}
+            ]
+        })
 
 # WebSocket Manager
 class ConnectionManager:

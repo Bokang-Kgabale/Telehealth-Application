@@ -52,7 +52,7 @@ const muteAudioBtn = document.getElementById("muteAudio");
 async function fetchTurnCredentials() {
   try {
     console.log("Fetching TURN credentials...");
-    const response = await fetch('/api/turn-credentials');
+    const response = await fetch('https://video-call-turn-server.metered.live/api/v1/turn/credentials?apiKey=830861d869e2d2005321d5f5b2cbc7e141f4');
     
     if (!response.ok) {
       const errorText = await response.text();
