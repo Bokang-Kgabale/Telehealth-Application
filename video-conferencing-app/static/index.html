@@ -14,6 +14,50 @@
 
   <!-- Font Awesome -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+  
+  <style>
+    /* Additional styles for the room display */
+    .room-info {
+      margin-top: 15px;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .room-code {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f5f5f5;
+      font-family: monospace;
+      font-size: 16px;
+      cursor: pointer;
+      display: inline-block;
+    }
+    
+    .copy-button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .copy-button:hover {
+      background-color: #45a049;
+    }
+    
+    .copy-feedback {
+      display: none;
+      color: #4CAF50;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+  </style>
 </head>
 <body>
   <!-- Connection Status Indicator -->
@@ -62,12 +106,55 @@
     </button>
   </div>
 
-  <!-- Room Info -->
+  <!-- Room Info - Moved up, right under buttons with copy functionality -->
   <div class="room-info">
-    <p id="currentRoom"></p>
+    <span id="roomLabel" style="display: none;">Room: </span>
+    <span id="currentRoom" class="room-code" onclick="copyRoomCode()"></span>
+    <button id="copyButton" class="copy-button" onclick="copyRoomCode()">
+      <i class="fas fa-copy"></i> Copy
+    </button>
+    <span id="copyFeedback" class="copy-feedback">Copied!</span>
   </div>
 
   <!-- Main Script -->
   <script src="/static/script.js"></script>
+  
+  <!-- Additional script for room code copying functionality -->
+  <script>
+    function copyRoomCode() {
+      const roomCode = document.getElementById('currentRoom').textContent;
+      if (!roomCode) return;
+      
+      navigator.clipboard.writeText(roomCode).then(() => {
+        // Show feedback
+        const feedback = document.getElementById('copyFeedback');
+        feedback.style.display = 'inline';
+        
+        // Hide feedback after 2 seconds
+        setTimeout(() => {
+          feedback.style.display = 'none';
+        }, 2000);
+      });
+    }
+    
+    // Modify the original script to show the room label when a room code is available
+    const originalSetRoomCallback = window.setRoom || function() {};
+    window.setRoom = function(roomId) {
+      if (originalSetRoomCallback) originalSetRoomCallback(roomId);
+      
+      const roomElement = document.getElementById('currentRoom');
+      const roomLabel = document.getElementById('roomLabel');
+      
+      if (roomId) {
+        roomLabel.style.display = 'inline';
+        roomElement.textContent = roomId;
+        document.getElementById('copyButton').style.display = 'inline-block';
+      } else {
+        roomLabel.style.display = 'none';
+        roomElement.textContent = '';
+        document.getElementById('copyButton').style.display = 'none';
+      }
+    };
+  </script>
 </body>
 </html>
