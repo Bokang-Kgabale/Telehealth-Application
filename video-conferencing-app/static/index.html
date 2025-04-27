@@ -35,6 +35,7 @@
       font-size: 16px;
       cursor: pointer;
       display: inline-block;
+      min-width: 120px;
     }
     
     .copy-button {
@@ -45,6 +46,7 @@
       padding: 8px 12px;
       cursor: pointer;
       font-size: 14px;
+      display: none;
     }
     
     .copy-button:hover {
@@ -106,10 +108,9 @@
     </button>
   </div>
 
-  <!-- Room Info - Moved up, right under buttons with copy functionality -->
+  <!-- Room Info - Displays only the room ID with copy functionality -->
   <div class="room-info">
-    <span id="roomLabel" style="display: none;">Room: </span>
-    <span id="currentRoom" class="room-code" onclick="copyRoomCode()"></span>
+    <div id="currentRoom" class="room-code" onclick="copyRoomCode()"></div>
     <button id="copyButton" class="copy-button" onclick="copyRoomCode()">
       <i class="fas fa-copy"></i> Copy
     </button>
@@ -119,42 +120,87 @@
   <!-- Main Script -->
   <script src="/static/script.js"></script>
   
-  <!-- Additional script for room code copying functionality -->
+  <!-- Additional script to fix room display and copying functionality -->
   <script>
-    function copyRoomCode() {
-      const roomCode = document.getElementById('currentRoom').textContent;
-      if (!roomCode) return;
+    // Function to properly display the room ID
+    function updateRoomDisplay() {
+      const roomElement = document.getElementById('currentRoom');
+      const copyButton = document.getElementById('copyButton');
       
-      navigator.clipboard.writeText(roomCode).then(() => {
-        // Show feedback
-        const feedback = document.getElementById('copyFeedback');
-        feedback.style.display = 'inline';
+      // Check if there's content in the room element
+      if (roomElement.textContent.trim()) {
+        // Remove any prefix text like "Room ID: " if it exists
+        let roomText = roomElement.textContent.trim();
+        if (roomText.includes(':')) {
+          roomText = roomText.split(':')[1].trim();
+        }
         
-        // Hide feedback after 2 seconds
-        setTimeout(() => {
-          feedback.style.display = 'none';
-        }, 2000);
-      });
+        // Update with clean room ID
+        roomElement.textContent = roomText;
+        copyButton.style.display = 'inline-block';
+      } else {
+        copyButton.style.display = 'none';
+      }
     }
     
-    // Modify the original script to show the room label when a room code is available
-    const originalSetRoomCallback = window.setRoom || function() {};
-    window.setRoom = function(roomId) {
-      if (originalSetRoomCallback) originalSetRoomCallback(roomId);
+    // Copy function
+    function copyRoomCode() {
+      const roomCode = document.getElementById('currentRoom').textContent.trim();
+      if (!roomCode) return;
       
-      const roomElement = document.getElementById('currentRoom');
-      const roomLabel = document.getElementById('roomLabel');
-      
-      if (roomId) {
-        roomLabel.style.display = 'inline';
-        roomElement.textContent = roomId;
-        document.getElementById('copyButton').style.display = 'inline-block';
-      } else {
-        roomLabel.style.display = 'none';
-        roomElement.textContent = '';
-        document.getElementById('copyButton').style.display = 'none';
-      }
-    };
+      // Use modern clipboard API
+      navigator.clipboard.writeText(roomCode)
+        .then(() => {
+          // Show feedback
+          const feedback = document.getElementById('copyFeedback');
+          feedback.style.display = 'inline';
+          
+          // Hide feedback after 2 seconds
+          setTimeout(() => {
+            feedback.style.display = 'none';
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('Could not copy room code: ', err);
+          
+          // Fallback method
+          const tempInput = document.createElement('input');
+          tempInput.value = roomCode;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          
+          // Show feedback for fallback as well
+          const feedback = document.getElementById('copyFeedback');
+          feedback.style.display = 'inline';
+          setTimeout(() => {
+            feedback.style.display = 'none';
+          }, 2000);
+        });
+    }
+    
+    // Setup a MutationObserver to monitor when the room ID is updated
+    const roomElement = document.getElementById('currentRoom');
+    const observer = new MutationObserver(function(mutations) {
+      updateRoomDisplay();
+    });
+    
+    observer.observe(roomElement, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+    
+    // Initial check in case room ID is already set
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(updateRoomDisplay, 500); // Slight delay to ensure everything is loaded
+    });
+    
+    // Additional listener for any script that might update the room ID
+    window.addEventListener('load', function() {
+      setTimeout(updateRoomDisplay, 1000); // Check again after load
+    });
   </script>
 </body>
 </html>
