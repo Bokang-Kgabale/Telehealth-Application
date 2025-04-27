@@ -46,7 +46,6 @@
       padding: 8px 12px;
       cursor: pointer;
       font-size: 14px;
-      display: none;
     }
     
     .copy-button:hover {
@@ -108,7 +107,7 @@
     </button>
   </div>
 
-  <!-- Room Info - Displays only the room ID with copy functionality -->
+  <!-- Room Info - Moved up, right under buttons -->
   <div class="room-info">
     <div id="currentRoom" class="room-code" onclick="copyRoomCode()"></div>
     <button id="copyButton" class="copy-button" onclick="copyRoomCode()">
@@ -120,29 +119,8 @@
   <!-- Main Script -->
   <script src="/static/script.js"></script>
   
-  <!-- Additional script to fix room display and copying functionality -->
+  <!-- Additional script for copy functionality -->
   <script>
-    // Function to properly display the room ID
-    function updateRoomDisplay() {
-      const roomElement = document.getElementById('currentRoom');
-      const copyButton = document.getElementById('copyButton');
-      
-      // Check if there's content in the room element
-      if (roomElement.textContent.trim()) {
-        // Remove any prefix text like "Room ID: " if it exists
-        let roomText = roomElement.textContent.trim();
-        if (roomText.includes(':')) {
-          roomText = roomText.split(':')[1].trim();
-        }
-        
-        // Update with clean room ID
-        roomElement.textContent = roomText;
-        copyButton.style.display = 'inline-block';
-      } else {
-        copyButton.style.display = 'none';
-      }
-    }
-    
     // Copy function
     function copyRoomCode() {
       const roomCode = document.getElementById('currentRoom').textContent.trim();
@@ -179,28 +157,6 @@
           }, 2000);
         });
     }
-    
-    // Setup a MutationObserver to monitor when the room ID is updated
-    const roomElement = document.getElementById('currentRoom');
-    const observer = new MutationObserver(function(mutations) {
-      updateRoomDisplay();
-    });
-    
-    observer.observe(roomElement, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
-    
-    // Initial check in case room ID is already set
-    document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(updateRoomDisplay, 500); // Slight delay to ensure everything is loaded
-    });
-    
-    // Additional listener for any script that might update the room ID
-    window.addEventListener('load', function() {
-      setTimeout(updateRoomDisplay, 1000); // Check again after load
-    });
   </script>
 </body>
 </html>
