@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import './PatientDashboard.css';
 
-const PatientDashboard = () => {  // Change App to PatientDashboard
+const PatientDashboard = () => {
     const webcamRef = useRef(null);
     const [showCamera, setShowCamera] = useState(false);
     const [showStream, setShowStream] = useState(false);
@@ -11,7 +11,11 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
         weight: null
     });
     const [mode, setMode] = useState(null);
-    const [cameraDeviceId, setCameraDeviceId] = useState('');
+    const [cameraDevices, setCameraDevices] = useState([]);
+    const [selectedCameras, setSelectedCameras] = useState({
+        temperature: '',
+        weight: ''
+    });
     const [timer, setTimer] = useState(5);
     const [cameraReady, setCameraReady] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
@@ -25,13 +29,27 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
     const [roomId, setRoomId] = useState('');
     const [showRoomIdModal, setShowRoomIdModal] = useState(false);
     const [pendingCaptureType, setPendingCaptureType] = useState(null);
+    const [cameraSelectionModal, setCameraSelectionModal] = useState(false);
 
     const refreshDevices = useCallback(() => {
         navigator.mediaDevices.enumerateDevices()
             .then(devices => {
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                setCameraDevices(videoDevices);
+                
+                // Set default cameras if available
                 if (videoDevices.length > 0) {
-                    setCameraDeviceId(videoDevices[0].deviceId);
+                    // First camera for temperature by default
+                    const temperatureCamera = videoDevices[0].deviceId;
+                    
+                    // Second camera for weight (if exists), otherwise use first camera
+                    const weightCamera = videoDevices.length > 1 ? 
+                        videoDevices[1].deviceId : videoDevices[0].deviceId;
+                    
+                    setSelectedCameras({
+                        temperature: temperatureCamera,
+                        weight: weightCamera
+                    });
                 }
             })
             .catch(error => console.error('Error enumerating devices:', error));
@@ -86,7 +104,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
             const formData = new FormData();
             formData.append('image', blob, `${type}.jpg`);
             formData.append('type', type);
-            formData.append('roomId', roomId);  // ✅ Add roomId to upload
+            formData.append('roomId', roomId);  // Add roomId to upload
     
             const response = await fetch('https://ocr-backend-application.onrender.com/api/upload/', {
                 method: 'POST',
@@ -155,7 +173,37 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
     const handleCapture = (type) => {
         console.log("Setting capture type to:", type);
         setPendingCaptureType(type);
-        setShowRoomIdModal(true); // Open the modal
+        
+        // Check if we have multiple cameras available
+        if (cameraDevices.length > 1) {
+            // Open camera selection modal first
+            setCameraSelectionModal(true);
+        } else {
+            // If only one camera, proceed with room ID
+            setShowRoomIdModal(true);
+        }
+    };
+
+    const handleCameraSelection = (deviceId) => {
+        if (pendingCaptureType) {
+            setSelectedCameras(prev => ({
+                ...prev,
+                [pendingCaptureType]: deviceId
+            }));
+            setCameraSelectionModal(false);
+            setShowRoomIdModal(true); // Now proceed to room ID entry
+        }
+    };
+
+    // Get the currently active camera based on capture type
+    const getCurrentCameraId = () => {
+        return activeCapture ? selectedCameras[activeCapture] : '';
+    };
+
+    // Get friendly name for camera by deviceId
+    const getCameraName = (deviceId) => {
+        const device = cameraDevices.find(d => d.deviceId === deviceId);
+        return device ? (device.label || `Camera ${cameraDevices.indexOf(device) + 1}`) : 'Unknown Camera';
     };
 
     return (
@@ -172,7 +220,28 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                         <button onClick={startSession} className="button start-session-btn">
                             <i className="icon stream-icon"></i>
                             Capture Vitals
-                        </button>                        
+                        </button>
+                        
+                        {/* Camera Management Button */}
+                        <button onClick={() => setCameraSelectionModal(true)} className="button camera-settings-btn">
+                            <i className="icon camera-icon"></i>
+                            Camera Settings
+                        </button>
+                    </div>
+                    
+                    {/* Display available cameras */}
+                    <div className="camera-info">
+                        <h4>Camera Assignments:</h4>
+                        <div className="camera-list">
+                            <p><strong>Temperature:</strong> {getCameraName(selectedCameras.temperature)}</p>
+                            <p><strong>Weight:</strong> {getCameraName(selectedCameras.weight)}</p>
+                        </div>
+                        <div className="camera-count">
+                            <p>{cameraDevices.length} camera(s) detected</p>
+                            <button onClick={refreshDevices} className="refresh-btn">
+                                Refresh
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -200,6 +269,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                                     <div className="timer-display">
                                         <span className="timer-circle">{timer}</span>
                                         <p>Capturing {activeCapture} in {timer} seconds</p>
+                                        <p className="camera-label">Using: {getCameraName(selectedCameras[activeCapture])}</p>
                                     </div>
                                 )}
 
@@ -208,7 +278,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                                     screenshotFormat="image/jpeg"
                                     className="compact-webcam"
                                     videoConstraints={{
-                                        deviceId: cameraDeviceId,
+                                        deviceId: getCurrentCameraId(),
                                         facingMode: 'user',
                                     }}
                                     onUserMedia={handleOnReady}
@@ -247,6 +317,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                                     <div className="captured-image-card">
                                         <h4>Temperature</h4>
                                         <img src={capturedImages.temperature} alt='Captured Temperature' className="captured-image" />
+                                        <p className="camera-info">Captured with: {getCameraName(selectedCameras.temperature)}</p>
                                         {capturedData.temperature && (
                                             <div className="data-display">
                                                 <div className="data-value">{capturedData.temperature.formatted_value}</div>
@@ -259,6 +330,7 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                                     <div className="captured-image-card">
                                         <h4>Weight</h4>
                                         <img src={capturedImages.weight} alt='Captured Weight' className="captured-image" />
+                                        <p className="camera-info">Captured with: {getCameraName(selectedCameras.weight)}</p>
                                         {capturedData.weight && (
                                             <div className="data-display">
                                                 <div className="data-value">{capturedData.weight.formatted_value}</div>
@@ -301,6 +373,43 @@ const PatientDashboard = () => {  // Change App to PatientDashboard
                                 setPendingCaptureType(null);
                             }}>
                                 Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Camera Selection Modal */}
+            {cameraSelectionModal && (
+                <div className="modal-backdrop">
+                    <div className="modal camera-modal">
+                        <h3>Select Camera for {pendingCaptureType || 'Capture'}</h3>
+                        
+                        {cameraDevices.length > 0 ? (
+                            <div className="camera-options">
+                                {cameraDevices.map((device, index) => (
+                                    <button 
+                                        key={device.deviceId} 
+                                        className="camera-option-btn"
+                                        onClick={() => handleCameraSelection(device.deviceId)}
+                                    >
+                                        {device.label || `Camera ${index + 1}`}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p>No cameras detected. Please check your permissions.</p>
+                        )}
+                        
+                        <div className="modal-buttons">
+                            <button onClick={() => {
+                                setCameraSelectionModal(false);
+                                setPendingCaptureType(null);
+                            }}>
+                                Cancel
+                            </button>
+                            <button onClick={refreshDevices}>
+                                Refresh Cameras
                             </button>
                         </div>
                     </div>
