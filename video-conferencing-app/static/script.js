@@ -363,7 +363,7 @@ async function startVideoCall() {
     });
     roomId = roomRef.id;
 
-    currentRoomDisplay.innerText = `Room ID: ${roomId}`;
+    currentRoomDisplay.innerText = `${roomId}`;
     hangUpBtn.disabled = false;
 
     callerCandidatesCollection = roomRef.collection("callerCandidates");
