@@ -175,7 +175,7 @@
     
     // Email function - opens user's default email client with room ID in body
     function emailRoomCode() {
-      const roomCode = document.getElementById('currentRoom');
+      const roomCode = document.getElementById('currentRoom').textContent.trim();
       if (!roomCode) return;
       
       const subject = "Join my video call";
