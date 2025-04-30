@@ -175,11 +175,11 @@
     
     // Email function - opens user's default email client with room ID in body
     function emailRoomCode() {
-      const roomCode = document.getElementById('currentRoom').textContent.trim();
+      const roomCode = document.getElementById('currentRoom');
       if (!roomCode) return;
       
       const subject = "Join my video call";
-      const body = `Join my video call using this room ID: ${roomCode}`;
+      const body = `Join my video call by copying and pasting the following room ID on the join call button. Here is the room ID: ${roomCode}`;
       
       // Create mailto link
       const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
