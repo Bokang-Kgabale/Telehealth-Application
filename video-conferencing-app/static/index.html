@@ -16,9 +16,13 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
   
   <style>
-    /* Additional styles for the room display */
+    /* Additional styles with reduced spacing */
+    .button-container {
+      margin-bottom: 8px; /* Reduced bottom margin of button container */
+    }
+    
     .room-info {
-      margin-top: 8px;
+      margin-top: 8px; /* Reduced top margin of room info */
       text-align: center;
       display: flex;
       justify-content: center;
@@ -38,7 +42,7 @@
       min-width: 120px;
     }
     
-    .copy-button {
+    .copy-button, .email-button {
       background-color: #4CAF50;
       color: white;
       border: none;
@@ -46,7 +50,14 @@
       padding: 6px 10px;
       cursor: pointer;
       font-size: 14px;
-      display: none;
+    }
+    
+    .email-button {
+      background-color: #2196F3; /* Blue for email */
+    }
+    
+    .email-button:hover {
+      background-color: #0b7dda;
     }
     
     .copy-button:hover {
@@ -108,11 +119,14 @@
     </button>
   </div>
 
-  <!-- Room Info - Displays only the room ID with copy functionality -->
+  <!-- Room Info - with copy and email share options -->
   <div class="room-info">
     <div id="currentRoom" class="room-code" onclick="copyRoomCode()"></div>
-    <button id="copyButton" class="copy-button" onclick="copyRoomCode()">
-      <i class="fas fa-copy"></i> Copy
+    <button id="copyButton" class="copy-button" onclick="copyRoomCode()" title="Copy Room ID">
+      <i class="fas fa-copy"></i>
+    </button>
+    <button id="emailButton" class="email-button" onclick="emailRoomCode()" title="Email Room ID">
+      <i class="fas fa-envelope"></i>
     </button>
     <span id="copyFeedback" class="copy-feedback">Copied!</span>
   </div>
@@ -120,29 +134,8 @@
   <!-- Main Script -->
   <script src="/static/script.js"></script>
   
-  <!-- Additional script to fix room display and copying functionality -->
+  <!-- Additional script for copy and email functionality -->
   <script>
-    // Function to properly display the room ID
-    function updateRoomDisplay() {
-      const roomElement = document.getElementById('currentRoom');
-      const copyButton = document.getElementById('copyButton');
-      
-      // Check if there's content in the room element
-      if (roomElement.textContent.trim()) {
-        // Remove any prefix text like "Room ID: " if it exists
-        let roomText = roomElement.textContent.trim();
-        if (roomText.includes(':')) {
-          roomText = roomText.split(':')[1].trim();
-        }
-        
-        // Update with clean room ID
-        roomElement.textContent = roomText;
-        copyButton.style.display = 'inline-block';
-      } else {
-        copyButton.style.display = 'none';
-      }
-    }
-    
     // Copy function
     function copyRoomCode() {
       const roomCode = document.getElementById('currentRoom').textContent.trim();
@@ -180,27 +173,20 @@
         });
     }
     
-    // Setup a MutationObserver to monitor when the room ID is updated
-    const roomElement = document.getElementById('currentRoom');
-    const observer = new MutationObserver(function(mutations) {
-      updateRoomDisplay();
-    });
-    
-    observer.observe(roomElement, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
-    
-    // Initial check in case room ID is already set
-    document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(updateRoomDisplay, 500); // Slight delay to ensure everything is loaded
-    });
-    
-    // Additional listener for any script that might update the room ID
-    window.addEventListener('load', function() {
-      setTimeout(updateRoomDisplay, 1000); // Check again after load
-    });
+    // Email function - opens user's default email client with room ID in body
+    function emailRoomCode() {
+      const roomCode = document.getElementById('currentRoom').textContent.trim();
+      if (!roomCode) return;
+      
+      const subject = "Join my video call";
+      const body = `Join my video call using this room ID: ${roomCode}`;
+      
+      // Create mailto link
+      const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      
+      // Open the email client
+      window.location.href = mailtoLink;
+    }
   </script>
 </body>
 </html>
