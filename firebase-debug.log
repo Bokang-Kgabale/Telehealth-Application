@@ -360,3 +360,114 @@
 [info] 
 [info] Project Console: https://console.firebase.google.com/project/fir-rtc-521a2/overview
 [info] Hosting URL: https://fir-rtc-521a2.web.app
+[debug] [2025-05-01T12:58:17.315Z] ----------------------------------------------------------------------
+[debug] [2025-05-01T12:58:17.319Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\thuha\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting --debug
+[debug] [2025-05-01T12:58:17.319Z] CLI Version:   14.2.2
+[debug] [2025-05-01T12:58:17.319Z] Platform:      win32
+[debug] [2025-05-01T12:58:17.319Z] Node Version:  v22.14.0
+[debug] [2025-05-01T12:58:17.320Z] Time:          Thu May 01 2025 14:58:17 GMT+0200 (South Africa Standard Time)
+[debug] [2025-05-01T12:58:17.320Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-01T12:58:17.536Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-01T12:58:17.538Z] > authorizing via signed-in user (bokangkgabale33889@gmail.com)
+[debug] [2025-05-01T12:58:17.538Z] [iam] checking project fir-rtc-521a2 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-05-01T12:58:17.545Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:17.545Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:17.547Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/fir-rtc-521a2:testIamPermissions [none]
+[debug] [2025-05-01T12:58:17.547Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/fir-rtc-521a2:testIamPermissions x-goog-quota-user=projects/fir-rtc-521a2
+[debug] [2025-05-01T12:58:17.548Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/fir-rtc-521a2:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-05-01T12:58:19.704Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/fir-rtc-521a2:testIamPermissions 200
+[debug] [2025-05-01T12:58:19.705Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/fir-rtc-521a2:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-05-01T12:58:19.706Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:19.706Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:19.707Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/fir-rtc-521a2 [none]
+[debug] [2025-05-01T12:58:20.523Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/fir-rtc-521a2 200
+[debug] [2025-05-01T12:58:20.523Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/fir-rtc-521a2 {"projectId":"fir-rtc-521a2","projectNumber":"599476304901","displayName":"FirebaseRTC","name":"projects/fir-rtc-521a2","resources":{"hostingSite":"fir-rtc-521a2","realtimeDatabaseInstance":"fir-rtc-521a2-default-rtdb"},"state":"ACTIVE","etag":"1_c0a81177-7371-48cb-8530-b6f26872bd1c"}
+[info] 
+[info] === Deploying to 'fir-rtc-521a2'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2025-05-01T12:58:20.532Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:20.532Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:20.533Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions [none]
+[debug] [2025-05-01T12:58:20.533Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2025-05-01T12:58:23.227Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions 200
+[debug] [2025-05-01T12:58:23.227Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions {"name":"projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[fir-rtc-521a2]: beginning deploy... 
+[info] i  hosting[fir-rtc-521a2]: found 14 files in telehealth-frontend/build 
+[debug] [2025-05-01T12:58:23.249Z] [hosting] uploading with 200 concurrency
+[debug] [2025-05-01T12:58:23.397Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:23.398Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:23.399Z] [hosting] hash cache [dGVsZWhlYWx0aC1mcm9udGVuZFxidWlsZA] stored for 14 files
+[debug] [2025-05-01T12:58:23.399Z] [hosting][hash queue][FINAL] {"max":144,"min":3,"avg":16.142857142857142,"active":0,"complete":14,"success":14,"errored":0,"retried":0,"total":14,"elapsed":149}
+[debug] [2025-05-01T12:58:23.400Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118:populateFiles [none]
+[debug] [2025-05-01T12:58:23.400Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118:populateFiles {"files":{"/robots.txt":"bfe106a3fb878dc83461c86818bf74fc1bdc7f28538ba613cd3e775516ce8b49","/manifest.json":"ee04fb47e525c67d8424ffe9b4d8a8a24e434504478afca4e0ca602146836d4c","/logo512.png":"212b102aa09e51b3b3e06647e81f7801a61333e171f6582e8124379aabccb41d","/logo192.png":"79e2b749561016bc8af300ea19f48347ceed3cb1a54f48ae456172eca45e08f0","/favicon.ico":"27edce7be5922cf0bef7d4136f69b5bfbdd5bf8c13c7b026f71187d41a00aa7d","/index.html":"435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f","/asset-manifest.json":"900e5dbf92e4eb7aeab2fe5b32f61b3254853a12f0dd579d10111b129fbdc08d","/static/js/main.b21d8118.js.LICENSE.txt":"fcfba9b6931ef15b759287a7e97d61b94cd92ebd6510498e1e8b0e284a311723","/static/js/453.40b64c11.chunk.js":"9e9fc9603bb55b5c34fe7991fe60ac52b3700df0cf18774ac5d72820d2477ff5","/static/js/453.40b64c11.chunk.js.map":"9d63cc3b19e0c124daa919580958a66a6938c2f13e69ae3ceb5d2ae4fe724539","/static/css/main.b89a4860.css":"ffc572af16a157a7bd28f27328c5847d7c3bb2fa44134426661f9a6223e4dd7b","/static/css/main.b89a4860.css.map":"f0f5fe9e13850e46723ba78520835cdf50fa59929b481e98d69f86f34ac6182f","/static/js/main.b21d8118.js":"792fc96a0083d3d2c6bff6a8a02447753e872ffc4970055f3873e1e42cc13045","/static/js/main.b21d8118.js.map":"401bf2bfbe424a7303409190f2be0b6f746a139befa642c2c0728e67a0ebc7c7"}}
+[debug] [2025-05-01T12:58:24.122Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118:populateFiles 200
+[debug] [2025-05-01T12:58:24.123Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118:populateFiles {"uploadRequiredHashes":["435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/fir-rtc-521a2/versions/6d06c834105aa118/files"}
+[debug] [2025-05-01T12:58:24.126Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:24.127Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:24.128Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/fir-rtc-521a2/versions/6d06c834105aa118/files/435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f [none]
+[debug] [2025-05-01T12:58:24.129Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/fir-rtc-521a2/versions/6d06c834105aa118/files/435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f [stream]
+[debug] [2025-05-01T12:58:24.133Z] [hosting][populate queue][FINAL] {"max":731,"min":731,"avg":731,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":736}
+[debug] [2025-05-01T12:58:24.133Z] [hosting] uploads queued: 1
+[info] i  hosting: uploading new files [0/1] (0%) 
+[debug] [2025-05-01T12:58:25.787Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/fir-rtc-521a2/versions/6d06c834105aa118/files/435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f 200
+[debug] [2025-05-01T12:58:25.787Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/fir-rtc-521a2/versions/6d06c834105aa118/files/435264b8826587cc400c5a3e3c252152b6e3f5a1713faccf97f4979d6a777c4f [stream]
+[debug] [2025-05-01T12:58:25.788Z] [hosting][upload queue][FINAL] {"max":1664,"min":1664,"avg":1664,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1664}
+[info] i  hosting: upload complete 
+[info] +  hosting[fir-rtc-521a2]: file upload complete 
+[debug] [2025-05-01T12:58:25.790Z] [hosting] deploy completed after 2558ms
+[debug] [2025-05-01T12:58:25.791Z] [
+  {
+    "config": {
+      "public": "telehealth-frontend/build",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        }
+      ],
+      "site": "fir-rtc-521a2"
+    },
+    "version": "projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118"
+  }
+]
+[info] i  hosting[fir-rtc-521a2]: finalizing version... 
+[debug] [2025-05-01T12:58:25.796Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:25.796Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:25.797Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions/6d06c834105aa118 updateMask=status%2Cconfig
+[debug] [2025-05-01T12:58:25.798Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions/6d06c834105aa118 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}],"headers":[{"glob":"/**","headers":{"Cache-Control":"no-cache, no-store, must-revalidate"}}]}}
+[debug] [2025-05-01T12:58:26.814Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions/6d06c834105aa118 200
+[debug] [2025-05-01T12:58:26.815Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/versions/6d06c834105aa118 {"name":"projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118","status":"FINALIZED","config":{"headers":[{"headers":{"Cache-Control":"no-cache, no-store, must-revalidate"},"glob":"/**"}],"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-05-01T12:58:23.470213Z","createUser":{"email":"bokangkgabale33889@gmail.com"},"finalizeTime":"2025-05-01T12:58:27.629321Z","finalizeUser":{"email":"bokangkgabale33889@gmail.com"}}
+[debug] [2025-05-01T12:58:26.816Z] [hosting] finalized version for fir-rtc-521a2:[object Object]
+[info] +  hosting[fir-rtc-521a2]: version finalized 
+[info] i  hosting[fir-rtc-521a2]: releasing new version... 
+[debug] [2025-05-01T12:58:26.819Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:26.820Z] Checked if tokens are valid: true, expires at: 1746107768853
+[debug] [2025-05-01T12:58:26.822Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/channels/live/releases versionName=projects%2F599476304901%2Fsites%2Ffir-rtc-521a2%2Fversions%2F6d06c834105aa118
+[debug] [2025-05-01T12:58:26.823Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/channels/live/releases {}
+[debug] [2025-05-01T12:58:27.738Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/channels/live/releases 200
+[debug] [2025-05-01T12:58:27.739Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/fir-rtc-521a2/channels/live/releases {"name":"projects/599476304901/sites/fir-rtc-521a2/channels/live/releases/1746104307881000","version":{"name":"projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118","status":"FINALIZED","config":{"headers":[{"headers":{"Cache-Control":"no-cache, no-store, must-revalidate"},"glob":"/**"}],"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-05-01T12:58:23.470213Z","createUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"},"finalizeTime":"2025-05-01T12:58:27.629321Z","finalizeUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"}},"type":"DEPLOY","releaseTime":"2025-05-01T12:58:27.881Z","releaseUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"}}
+[debug] [2025-05-01T12:58:27.740Z] [hosting] release: {"name":"projects/599476304901/sites/fir-rtc-521a2/channels/live/releases/1746104307881000","version":{"name":"projects/599476304901/sites/fir-rtc-521a2/versions/6d06c834105aa118","status":"FINALIZED","config":{"headers":[{"headers":{"Cache-Control":"no-cache, no-store, must-revalidate"},"glob":"/**"}],"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-05-01T12:58:23.470213Z","createUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"},"finalizeTime":"2025-05-01T12:58:27.629321Z","finalizeUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"}},"type":"DEPLOY","releaseTime":"2025-05-01T12:58:27.881Z","releaseUser":{"email":"bokangkgabale33889@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocIiJApq_bABAijDPF2B9sUipl9Vv-Bb3g5iO1YzkicQeppnUg=mo"}}
+[info] +  hosting[fir-rtc-521a2]: release complete 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/fir-rtc-521a2/overview
+[info] Hosting URL: https://fir-rtc-521a2.web.app
