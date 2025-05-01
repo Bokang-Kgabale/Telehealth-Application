@@ -71,14 +71,6 @@ const PatientDashboard = () => {
         setShowStream(!showStream);
         setShowCamera(false);
         resetState();
-
-        if (!showStream) {
-            try {
-                await fetch('http://127.0.0.1:8001/start-server');
-            } catch (error) {
-                console.error('Error starting live stream server:', error);
-            }
-        }
     };
 
     const exitCamera = () => {

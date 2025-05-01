@@ -8,15 +8,7 @@ const DoctorDashboard = () => {
     const [searchQuery, setSearchQuery] = useState(""); // Room ID
 
     const toggleLiveStream = async () => {
-        setShowStream(!showStream);
-
-        if (!showStream) {
-            try {
-                await fetch('http://127.0.0.1:8001/start-server');
-            } catch (error) {
-                console.error('Error starting live stream server:', error);
-            }
-        }
+        setShowStream(!showStream);        
     };
 
     const fetchCapturedData = async () => {

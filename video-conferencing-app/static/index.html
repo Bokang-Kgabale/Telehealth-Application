@@ -179,7 +179,7 @@
       if (!roomCode) return;
       
       const subject = "Join my video call";
-      const body = `Join my video call by copying and pasting the following room ID on the join call button. Here is the ${roomCode}`;
+      const body = `Join my video call by copying and pasting the following room ID on the join call button. Here is the room ID: ${roomCode}`;
       
       // Create mailto link
       const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

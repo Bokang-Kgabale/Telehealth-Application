@@ -382,7 +382,7 @@ async function joinRoom(roomIdInput) {
       return;
     }
 
-    currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
+    currentRoomDisplay.innerText = `${roomIdInput}`;
     roomId = roomIdInput;
 
     callerCandidatesCollection = roomRef.collection("callerCandidates");
