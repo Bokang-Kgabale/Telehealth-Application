@@ -21,19 +21,16 @@ app.get('/firebase-config', (req, res) => {
   res.json(firebaseConfig);
 });
 
+const METERED_API_KEY = process.env.METERED_API_KEY;
 // Endpoint to get TURN credentials
-app.get('/api/turn-credentials', async (req, res) => {
+app.get("/api/turn-credentials", async (req, res) => {
   try {
-    const response = await fetch(
-      `https://metered.ca/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}&lifetime=3600`
-    );
-    
-    if (!response.ok) throw new Error(`Error: ${response.statusText}`);
-    
-    res.json(await response.json());
-  } catch (error) {
-    console.error('Error getting TURN credentials:', error);
-    res.status(500).json({ error: error.message });
+    const response = await fetch(`https://video-call-turn-server.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching TURN credentials:", err);
+    res.status(500).json({ error: "Failed to fetch TURN credentials" });
   }
 });
 

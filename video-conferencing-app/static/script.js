@@ -49,18 +49,18 @@ const muteAudioBtn = document.getElementById("muteAudio");
 // Enhanced TURN credentials handling
 async function fetchTurnCredentials() {
   try {
-    console.log("Fetching TURN credentials...");
-    const response = await fetch('https://video-call-turn-server.metered.live/api/v1/turn/credentials?apiKey=830861d869e2d2005321d5f5b2cbc7e141f4');
-    
+    console.log("Fetching TURN credentials from backend...");
+    const response = await fetch('/api/turn-credentials'); // Relative path to your own backend
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Server response:", errorText);
       throw new Error(`Failed to fetch TURN credentials: ${response.statusText}`);
     }
-    
+
     const turnServers = await response.json();
     console.log("Received TURN servers:", turnServers);
-    
+
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -69,7 +69,7 @@ async function fetchTurnCredentials() {
         ...(turnServers.iceServers || turnServers || [])
       ]
     };
-    
+
     console.log("Updated ICE servers configuration:", iceServers);
     lastCredentialsFetchTime = Date.now();
     return true;
@@ -79,7 +79,7 @@ async function fetchTurnCredentials() {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.google.com:19302" }
+        { urls: "stun:stun2.l.google.com:19302" }
       ]
     };
     return false;
