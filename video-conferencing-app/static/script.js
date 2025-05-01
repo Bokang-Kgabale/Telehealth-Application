@@ -4,7 +4,6 @@ fetch('/firebase-config')
   .then(config => {
     firebase.initializeApp(config);
     db = firebase.firestore();
-    console.log("Firebase initialized successfully.");
     initializeVideoCall();
   })
   .catch(error => {
@@ -49,8 +48,7 @@ const muteAudioBtn = document.getElementById("muteAudio");
 // Enhanced TURN credentials handling
 async function fetchTurnCredentials() {
   try {
-    console.log("Fetching TURN credentials from backend...");
-    const response = await fetch('/api/turn-credentials'); // Relative path to your own backend
+    const response = await fetch('/api/turn-credentials');
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -59,8 +57,6 @@ async function fetchTurnCredentials() {
     }
 
     const turnServers = await response.json();
-    console.log("Received TURN servers:", turnServers);
-
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -70,7 +66,6 @@ async function fetchTurnCredentials() {
       ]
     };
 
-    console.log("Updated ICE servers configuration:", iceServers);
     lastCredentialsFetchTime = Date.now();
     return true;
   } catch (error) {
@@ -97,7 +92,6 @@ async function ensureFreshCredentials() {
 function updateConnectionStatus(message, isConnecting = true) {
   statusText.textContent = message;
   connectionStatus.className = isConnecting ? "connection-status connecting" : "connection-status ready";
-  console.log(`Connection status: ${message}`);
 }
 
 function updateConnectionQuality(quality) {
@@ -117,12 +111,10 @@ function updateConnectionQuality(quality) {
   }
   
   connectionQuality.innerHTML = `<i class="fas fa-circle"></i><span>${qualityText}</span>`;
-  console.log(`Connection quality: ${qualityText}`);
 }
 
 // Initialize video call
 function initializeVideoCall() {
-  console.log("Video call initialized");
   updateConnectionStatus("Ready to connect", false);
   setupUI();
 }
@@ -171,10 +163,8 @@ async function openUserMedia() {
     muteAudioBtn.disabled = false;
     toggleVideoBtn.disabled = false;
 
-    console.log("User media opened");
     updateConnectionStatus("Ready to connect", false);
     
-    // Hide open media button after successful access
     if (openMediaBtn) {
       openMediaBtn.style.display = 'none';
     }
@@ -194,7 +184,7 @@ function createPeerConnection() {
   
   const pc = new RTCPeerConnection({
     iceServers: iceServers.iceServers || iceServers,
-    iceTransportPolicy: 'all' // Use 'relay' in production to force TURN
+    iceTransportPolicy: 'all'
   });
   
   localStream.getTracks().forEach(track => {
@@ -214,31 +204,19 @@ function setupPeerConnectionListeners() {
       });
       remoteVideo.srcObject = remoteStream;
     }
-    console.log("Remote stream received.");
     updateConnectionQuality("good");
   };
 
   peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-      console.log("New ICE candidate:", event.candidate);
-      
-      if (event.candidate.candidate.includes('relay')) {
-        console.log("TURN server being used");
-      }
-      
-      if (roomId) {
-        const collectionName = isCaller ? "callerCandidates" : "calleeCandidates";
-        db.collection("rooms").doc(roomId).collection(collectionName).add(event.candidate.toJSON())
-          .catch(e => console.error("Error sending ICE candidate:", e));
-      }
-    } else {
-      console.log("ICE gathering complete");
+    if (event.candidate && roomId) {
+      const collectionName = isCaller ? "callerCandidates" : "calleeCandidates";
+      db.collection("rooms").doc(roomId).collection(collectionName).add(event.candidate.toJSON())
+        .catch(e => console.error("Error sending ICE candidate:", e));
     }
   };
 
   peerConnection.oniceconnectionstatechange = () => {
     const state = peerConnection.iceConnectionState;
-    console.log("ICE connection state:", state);
     
     let statusMessage = "Ready to connect";
     switch (state) {
@@ -273,12 +251,8 @@ function setupPeerConnectionListeners() {
       peerConnection.getStats().then(stats => {
         stats.forEach(report => {
           if (report.type === 'candidate-pair' && report.selected) {
-            console.log("Selected candidate pair:", report);
             if (report.localCandidateId) {
               const localCandidate = stats.get(report.localCandidateId);
-              if (localCandidate) {
-                console.log("Using TURN:", localCandidate.candidateType === 'relay');
-              }
             }
           }
         });
@@ -328,7 +302,6 @@ async function attemptIceRestart() {
 
 async function processBufferedCandidates() {
   if (iceCandidateBuffer.length > 0) {
-    console.log(`Processing ${iceCandidateBuffer.length} buffered ICE candidates`);
     for (const candidate of iceCandidateBuffer) {
       try {
         await peerConnection.addIceCandidate(candidate);
@@ -409,7 +382,6 @@ async function joinRoom(roomIdInput) {
       return;
     }
 
-    console.log(`Joining room: ${roomIdInput}`);
     currentRoomDisplay.innerText = `Room ID: ${roomIdInput}`;
     roomId = roomIdInput;
 
@@ -519,14 +491,12 @@ async function hangUp() {
   remoteVideo.srcObject = null;
   currentRoomDisplay.innerText = "";
   
-  // Reset UI state
   startCallBtn.disabled = true;
   joinCallBtn.disabled = true;
   hangUpBtn.disabled = true;
   muteAudioBtn.disabled = true;
   toggleVideoBtn.disabled = true;
   
-  // Show open media button again
   if (openMediaBtn) {
     openMediaBtn.style.display = 'block';
   }
