@@ -5,11 +5,13 @@ import DoctorDashboard from './components/Doctor/DoctorDashboard';
 
 function App() {
   return (
-    <Router>
+    <Router basename={process.env.PUBLIC_URL}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/Patient" element={<PatientDashboard />} />
         <Route path="/Doctor" element={<DoctorDashboard />} />
+        {/* Add a catch-all route */}
+        <Route path="*" element={<LandingPage />} />
       </Routes>
     </Router>
   );
