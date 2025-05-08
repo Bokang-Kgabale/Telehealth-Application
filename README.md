@@ -70,7 +70,7 @@ This Telehealth Application enables remote medical consultations with integrated
    ```
 3. Run the FastAPI video server:
    ```bash
-   uvicorn server.main:app --host 0.0.0.0 --port 8001
+   python video_server.py
    ```
 4. The video server will be available at `http://localhost:8001`.
 
