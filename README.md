@@ -13,8 +13,8 @@ This Telehealth Application enables remote medical consultations with integrated
 ## Tech Stack
 - Frontend: React, React Router, Webcam.js
 - Backend: Django, Firebase Admin SDK, Google Cloud Vision API
-- Video Server: FastAPI, Uvicorn
-- Database: Firebase Realtime Database
+- Video Server: FastAPI, Uvicorn, WebRTC & Firebase
+- Database: Firebase Realtime Database & Cloud Firestore
 - OCR: Google Cloud Vision API
 
 ## Setup and Installation
