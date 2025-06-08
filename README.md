@@ -93,8 +93,5 @@ This Telehealth Application enables remote medical consultations with integrated
 - `FIREBASE_CREDENTIALS_JSON`: Firebase service account JSON string.
 - `GOOGLE_APPLICATION_CREDENTIALS_JSON`: Google Vision API credentials JSON string.
 
-## License
-This project is licensed under the MIT License.
-
 ## Contributing
 Contributions are not allowed.
