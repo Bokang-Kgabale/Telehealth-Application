@@ -7,10 +7,8 @@ function LandingPage() {
 
   useEffect(() => {
     const contentBox = document.querySelector('.content-box');
-
     if (contentBox) {
       contentBox.style.opacity = 0;
-
       setTimeout(() => {
         contentBox.style.opacity = 1;
         contentBox.style.transition = 'opacity 0.8s ease-in-out';
@@ -18,7 +16,6 @@ function LandingPage() {
     }
 
     const buttons = document.querySelectorAll('.btn');
-
     buttons.forEach(button => {
       const handleRipple = (e) => {
         const x = e.clientX - button.getBoundingClientRect().left;
@@ -30,15 +27,12 @@ function LandingPage() {
         ripple.style.top = `${y}px`;
 
         button.appendChild(ripple);
-
         setTimeout(() => {
           ripple.remove();
         }, 600);
       };
 
       button.addEventListener('mousedown', handleRipple);
-
-      // Cleanup on unmount
       return () => {
         button.removeEventListener('mousedown', handleRipple);
       };
@@ -60,13 +54,17 @@ function LandingPage() {
           </svg>
 
           <div className="button-container">
-            <button className="btn btn-primary doctor" onClick={() => navigate('/doctor')}>
-              {/* Doctor icon */}
+            <button 
+              className="btn btn-primary doctor" 
+              onClick={() => navigate('/login', { state: { role: 'doctor' } })}
+            >
               Doctor Dashboard
             </button>
 
-            <button className="btn btn-secondary patient" onClick={() => navigate('/patient')}>
-              {/* Patient icon */}
+            <button 
+              className="btn btn-secondary patient" 
+              onClick={() => navigate('/patient-login', { state: { role: 'patient' } })}
+            >
               Patient View
             </button>
           </div>

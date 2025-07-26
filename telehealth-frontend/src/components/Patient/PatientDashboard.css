@@ -704,3 +704,32 @@ body {
     flex-direction: column;
   }
 }
+/* Add to your PatientDashboard.css */
+.app-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.patient-id-header {
+  color: #3498db;
+  font-weight: bold;
+  font-size: 1em;
+}
+
+.mode-indicator {
+  font-size: 0.9rem;
+  background: #e74c3c;
+  padding: 5px 15px;
+  border-radius: 20px;
+  margin-left: 15px;
+  display: inline-block;
+}
+
+.mode-indicator.capture {
+  background: #e67e22;
+}
+
+.mode-indicator.stream {
+  background: #2ecc71;
+}
