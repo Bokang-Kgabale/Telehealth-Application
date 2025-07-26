@@ -1,4 +1,4 @@
-import { getDatabase, ref, onValue, off } from "firebase/database";
+import { getDatabase, ref, onValue, off, get } from "firebase/database";
 
 /**
  * Fetches and monitors the patient queue for a specific city
@@ -11,28 +11,28 @@ export const monitorCityQueue = (cityCode, callback) => {
   const queueRef = ref(db, `patients/${cityCode}`);
   
   // Set up realtime listener
-  onValue(queueRef, (snapshot) => {
+  const handleSnapshot = (snapshot) => {
     const patients = [];
     
     snapshot.forEach((childSnapshot) => {
       const patient = childSnapshot.val();
       patients.push({
-        id: patient.id,
-        city: patient.city,
-        status: patient.status || 'waiting',
-        createdAt: patient.createdAt,
-        lastActive: patient.lastActive
+        id: childSnapshot.key,  // Use the key as fallback ID
+        ...patient,             // Spread all existing properties
+        status: patient.status || 'waiting'  // Default status
       });
     });
 
     // Sort by creation time (oldest first)
-    patients.sort((a, b) => a.createdAt - b.createdAt);
+    patients.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     
     callback(patients);
-  });
+  };
+
+  onValue(queueRef, handleSnapshot);
 
   // Return unsubscribe function
-  return () => off(queueRef);
+  return () => off(queueRef, handleSnapshot);
 };
 
 /**
@@ -42,13 +42,21 @@ export const getCityQueue = async (cityCode) => {
   const db = getDatabase();
   const queueRef = ref(db, `patients/${cityCode}`);
   
-  const snapshot = await get(queueRef);
-  if (!snapshot.exists()) return [];
+  try {
+    const snapshot = await get(queueRef);
+    if (!snapshot.exists()) return [];
 
-  const patients = [];
-  snapshot.forEach((childSnapshot) => {
-    patients.push(childSnapshot.val());
-  });
-  
-  return patients.sort((a, b) => a.createdAt - b.createdAt);
+    const patients = [];
+    snapshot.forEach((childSnapshot) => {
+      patients.push({
+        id: childSnapshot.key,
+        ...childSnapshot.val()
+      });
+    });
+    
+    return patients.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  } catch (error) {
+    console.error("Error fetching queue:", error);
+    return [];
+  }
 };

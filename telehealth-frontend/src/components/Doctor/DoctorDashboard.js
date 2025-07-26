@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { getDatabase, ref, onValue, off } from 'firebase/database';
+import { monitorCityQueue } from './queueService';
 import './DoctorDashboard.css';
 
 const DoctorDashboard = () => {
@@ -38,38 +38,16 @@ const DoctorDashboard = () => {
         fetchDoctorName();
     }, []);
 
-    // Monitor queue when city changes
-    // Monitor queue when city changes
-useEffect(() => {
-    const db = getDatabase();
-    const queueRef = ref(db, `patients/${currentCity}`);
-    
-    // Set up realtime listener
-    const handleSnapshot = (snapshot) => {
-        const patients = [];
-        snapshot.forEach((childSnapshot) => {
-            patients.push({
-                id: childSnapshot.key,
-                ...childSnapshot.val()
-            });
+    // Monitor queue when city changes using queueService
+    useEffect(() => {
+        const unsubscribe = monitorCityQueue(currentCity, (patients) => {
+            setPatientQueue(patients.sort((a, b) => a.createdAt - b.createdAt));
         });
-        
-        // Sort by creation time (oldest first)
-        patients.sort((a, b) => a.createdAt - b.createdAt);
-        setPatientQueue(patients);
-    };
+        return () => unsubscribe();
+    }, [currentCity]);
 
-    // Subscribe to changes
-    onValue(queueRef, handleSnapshot);
-
-    // Cleanup function
-    return () => {
-        off(queueRef, handleSnapshot);
-    };
-}, [currentCity]);
-
-    const toggleLiveStream = async () => {
-        setShowStream(!showStream);        
+    const toggleLiveStream = () => {
+        setShowStream(!showStream);
     };
 
     const fetchCapturedData = async () => {
@@ -96,7 +74,6 @@ useEffect(() => {
         }
     };
 
-    // Format wait time
     const formatWaitTime = (timestamp) => {
         if (!timestamp) return '';
         const minutes = Math.floor((Date.now() - timestamp) / 60000);

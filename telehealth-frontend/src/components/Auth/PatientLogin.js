@@ -26,18 +26,17 @@ function PatientLogin() {
 
     setLoading(true);
     try {
+      // Primary write to patients path
       await set(ref(db, `patients/${city}/${patientId}`), {
         id: patientId,
         city: city,
         status: 'waiting',
+        assignedRoom: null,
         createdAt: serverTimestamp(),
         lastActive: serverTimestamp()
       });
-
-      // Show success notification
       setShowSuccess(true);
       
-      // Redirect after 2 seconds
       setTimeout(() => {
         navigate('/patient', { 
           state: { 
@@ -57,7 +56,6 @@ function PatientLogin() {
 
   return (
     <div className="auth-container">
-      {/* Success Notification Modal */}
       {showSuccess && (
         <div className="success-modal">
           <div className="success-content">
