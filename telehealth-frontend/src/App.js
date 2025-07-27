@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './components/LandingPage/LandingPage';
 import LoginPage from './components/Auth/Login';
 import DoctorRegister from './components/Auth/DoctorRegister';
+import DebugInfoPage from './components/Debug/DebugInfoPage';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import Contact from './components/Auth/Contact';
 import PatientDashboard from './components/Patient/PatientDashboard';
@@ -36,6 +37,10 @@ function App() {
             // No authentication required for patient route
             <PatientDashboard /> 
           } 
+        />
+        <Route 
+          path="/debug" 
+          element={<DebugInfoPage />} 
         />
         <Route 
           path="/doctor" 

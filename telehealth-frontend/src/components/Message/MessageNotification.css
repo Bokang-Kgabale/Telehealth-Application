@@ -1,0 +1,77 @@
+/* Message Notification Styles */
+.message-notification {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 300px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.alert {
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.alert-info {
+  background-color: #d1ecf1;
+  border-left: 5px solid #0dcaf0;
+  color: #0c5460;
+}
+
+.alert-waiting {
+  background-color: #fff3cd;
+  border-left: 5px solid #ffc107;
+  color: #856404;
+}
+
+.alert h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.alert p {
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.room-assignment {
+  font-weight: bold;
+  margin-top: 10px;
+  color: #0d6efd;
+  display: block;
+}
+
+.alert small {
+  display: block;
+  font-size: 0.8rem;
+  color: inherit;
+  opacity: 0.8;
+  margin-top: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .message-notification {
+    width: calc(100% - 40px);
+    right: 20px;
+    left: 20px;
+    top: auto;
+    bottom: 20px;
+  }
+}

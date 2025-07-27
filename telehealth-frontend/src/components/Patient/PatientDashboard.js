@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Webcam from "react-webcam";
+import { getDatabase, ref, onValue, off } from "firebase/database";
+import MessageNotification from "../Message/MessageNotification";
+import { Link } from "react-router-dom"; // Import Link for debug info navigation
 import "./PatientDashboard.css";
 
 const PatientDashboard = () => {
@@ -34,6 +37,10 @@ const PatientDashboard = () => {
   const [showRoomIdModal, setShowRoomIdModal] = useState(false);
   const [pendingCaptureType, setPendingCaptureType] = useState(null);
   const [cameraSelectionModal, setCameraSelectionModal] = useState(false);
+  const [currentMessage, setCurrentMessage] = useState(null);
+  const [assignedRoom, setAssignedRoom] = useState(null);
+  const iframeRef = useRef(null);
+  const [city] = useState("CPT"); // Default to CPT, but can be dynamic
 
   const refreshDevices = useCallback(() => {
     navigator.mediaDevices
@@ -135,6 +142,63 @@ const PatientDashboard = () => {
     },
     [isCapturing, uploadImage]
   );
+  // Key press effect for debug info
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.ctrlKey && e.key === "d") {
+        window.open("/debug", "_blank");
+      }
+    };
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, []);
+  // Message listener effect
+  useEffect(() => {
+  if (!patientId || !city) {
+    console.log("No patientId or city available");
+    return;
+  }
+
+  const db = getDatabase();
+  const patientRef = ref(db, `patients/${city}/${patientId}`);
+
+  const unsubscribe = onValue(patientRef, (snapshot) => {
+    const data = snapshot.val();
+    console.log("Data snapshot:", data);
+
+    if (data?.lastMessage) {
+      setCurrentMessage({
+        content: data.lastMessage,
+        room: data.assignedRoom,
+        timestamp: data.messageTimestamp,
+      });
+      
+      // Update assigned room state
+      if (data.assignedRoom) {
+        setAssignedRoom(data.assignedRoom);
+        
+        // Post message to iframe to auto-join
+        const iframe = document.querySelector('iframe');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: "JOIN_ROOM",
+            roomId: data.assignedRoom
+          }, "http://127.0.0.1:8001"); // Match iframe origin
+        }
+      }
+    }
+  }, (error) => {
+    console.error("Listener error:", error);
+  });
+
+  return () => off(patientRef, unsubscribe);
+}, [patientId, city]);
+  // Request notification permission
+  useEffect(() => {
+    if ("Notification" in window) {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     if (
@@ -223,9 +287,7 @@ const PatientDashboard = () => {
       <header className="app-header">
         <h1>
           Medical Data Capture System - Patient Dashboard -
-          {patientId && (
-            <span className="patient-id-header"> {patientId}</span>
-          )}
+          {patientId && <span className="patient-id-header"> {patientId}</span>}
         </h1>
         {mode && (
           <h2 className={`mode-indicator ${mode}`}>
@@ -235,6 +297,18 @@ const PatientDashboard = () => {
       </header>
 
       <div className="main-content">
+        <MessageNotification
+          currentMessage={currentMessage}
+          assignedRoom={assignedRoom}
+        />
+
+        {/* Patient ID and city for debug info hidden */}
+        {process.env.NODE_ENV === "development" && (
+          <Link to="/debug" state={{ patientId, city }} className="debug-link">
+            Debug Info
+          </Link>
+        )}
+
         <div className="sidebar">
           <h3>Actions</h3>
           <div className="button-group">
@@ -271,7 +345,6 @@ const PatientDashboard = () => {
             </div>
           </div>
         </div>
-
         <div className="camera-container">
           <div className="camera-view">
             <div className="capture-controls">
@@ -329,7 +402,8 @@ const PatientDashboard = () => {
 
           <div className="stream-view">
             <iframe
-              src="https://telehealth-application.onrender.com/"
+            ref={iframeRef}
+              src="http://127.0.0.1:8001/" // Adjust this URL to your video conferencing app
               title="Video Conferencing"
               width="100%"
               height="500px"
@@ -340,7 +414,6 @@ const PatientDashboard = () => {
 
           <div className="empty-state"></div>
         </div>
-
         <div className="results-panel">
           <h3>Patient Vitals</h3>
           <div className="results-content">

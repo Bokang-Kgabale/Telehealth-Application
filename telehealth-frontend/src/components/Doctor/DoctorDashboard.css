@@ -648,3 +648,33 @@ body {
 
 .w-full { width: 100%; }
 .h-full { height: 100%; }
+/* ===== Patient Actions ===== */
+/* Message button styling */
+.message-button {
+    margin-left: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--info-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.message-button:hover {
+    background-color: var(--info-hover);
+}
+
+.patient-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+/* Style for the active room display */
+.active-room {
+  margin-top: 10px;
+  padding: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  font-size: 14px;
+}
