@@ -1,16 +1,12 @@
-// Firebase configuration with debugging
+// Firebase configuration
 fetch("/firebase-config")
   .then((res) => {
-    console.log("Firebase config response status:", res.status);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     return res.json();
   })
   .then((config) => {
-    console.log("Received Firebase config:", config);
-
-    // Validate minimum required fields
     const requiredFields = ["apiKey", "authDomain", "projectId"];
     const missingFields = requiredFields.filter((field) => !config[field]);
     if (missingFields.length > 0) {
@@ -20,35 +16,26 @@ fetch("/firebase-config")
     }
 
     try {
-      // Initialize Firebase
       const firebaseApp = firebase.initializeApp(config);
-      console.log("Firebase initialized successfully:", firebaseApp.name);
-
-      // Initialize Firestore with debug settings
       db = firebase.firestore();
       if (window.location.hostname === "localhost") {
         db.settings({
           experimentalForceLongPolling: true,
           merge: true,
         });
-        console.log("Firestore configured for local development");
       }
 
-      // Test Firestore connection
       db.collection("testConnection")
         .doc("test")
         .get()
-        .then(() => console.log("Firestore connection successful"))
-        .catch((e) => console.error("Firestore connection failed:", e));
+        .catch((e) => {});
 
       initializeVideoCall();
     } catch (initError) {
-      console.error("Firebase initialization error:", initError);
       throw initError;
     }
   })
   .catch((error) => {
-    console.error("Error loading Firebase configuration:", error);
     alert(`Firebase init failed: ${error.message}\nCheck console for details.`);
   });
 
@@ -67,20 +54,15 @@ let callerCandidatesCollection;
 let calleeCandidatesCollection;
 let restartAttempts = 0;
 const MAX_RESTART_ATTEMPTS = 2;
-const MAX_CONNECTION_TIME = 10000; // 10 seconds
+const MAX_CONNECTION_TIME = 10000;
 let lastCredentialsFetchTime = 0;
 let iceServers = null;
 
-// Add this near the top of script.js (after the global variables)
 window.addEventListener('message', (event) => {
-  // Verify origin matches your patient dashboard
-  if (event.origin !== "http://localhost:3000") return; // Adjust to your dashboard URL
+  if (event.origin !== "http://localhost:3000") return;
 
   if (event.data.type === "JOIN_ROOM" && event.data.roomId) {
-    console.log("Received room join request:", event.data.roomId);
-    joinRoom(event.data.roomId).catch(error => {
-      console.error("Failed to join room:", error);
-    });
+    joinRoom(event.data.roomId).catch(error => {});
   }
 });
 
@@ -99,14 +81,12 @@ const hangUpBtn = document.getElementById("hangUp");
 const toggleVideoBtn = document.getElementById("toggleVideo");
 const muteAudioBtn = document.getElementById("muteAudio");
 
-// Enhanced TURN credentials handling
 async function fetchTurnCredentials() {
   try {
     const response = await fetch("/api/turn-credentials");
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Server response:", errorText);
       throw new Error(
         `Failed to fetch TURN credentials: ${response.statusText}`
       );
@@ -125,7 +105,6 @@ async function fetchTurnCredentials() {
     lastCredentialsFetchTime = Date.now();
     return true;
   } catch (error) {
-    console.error("Error fetching TURN credentials:", error);
     iceServers = {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -144,7 +123,6 @@ async function ensureFreshCredentials() {
   }
 }
 
-// UI status updates
 function updateConnectionStatus(message, isConnecting = true) {
   statusText.textContent = message;
   connectionStatus.className = isConnecting
@@ -171,13 +149,11 @@ function updateConnectionQuality(quality) {
   connectionQuality.innerHTML = `<i class="fas fa-circle"></i><span>${qualityText}</span>`;
 }
 
-// Initialize video call
 function initializeVideoCall() {
   updateConnectionStatus("Ready to connect", false);
   setupUI();
 }
 
-// Set up UI event listeners
 function setupUI() {
   if (openMediaBtn) {
     openMediaBtn.addEventListener("click", openUserMedia);
@@ -193,7 +169,6 @@ function setupUI() {
   muteAudioBtn.addEventListener("click", toggleMic);
 }
 
-// Toggle microphone function
 function toggleMic() {
   if (localStream) {
     const audioTracks = localStream.getAudioTracks();
@@ -207,7 +182,6 @@ function toggleMic() {
   }
 }
 
-// Request user media
 async function openUserMedia() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -227,7 +201,6 @@ async function openUserMedia() {
       openMediaBtn.style.display = "none";
     }
   } catch (error) {
-    console.error("Error accessing media devices:", error);
     updateConnectionStatus("Media access failed");
     alert(
       "Unable to access camera and microphone. Please allow permissions and try again."
@@ -235,10 +208,8 @@ async function openUserMedia() {
   }
 }
 
-// Peer connection management
 function createPeerConnection() {
   if (!iceServers) {
-    console.error("ICE servers not configured");
     return null;
   }
 
@@ -274,7 +245,7 @@ function setupPeerConnectionListeners() {
         .doc(roomId)
         .collection(collectionName)
         .add(event.candidate.toJSON())
-        .catch((e) => console.error("Error sending ICE candidate:", e));
+        .catch((e) => {});
     }
   };
 
@@ -313,16 +284,7 @@ function setupPeerConnectionListeners() {
     if (state === "connected" || state === "completed") {
       peerConnection
         .getStats()
-        .then((stats) => {
-          stats.forEach((report) => {
-            if (report.type === "candidate-pair" && report.selected) {
-              if (report.localCandidateId) {
-                const localCandidate = stats.get(report.localCandidateId);
-              }
-            }
-          });
-        })
-        .catch((err) => console.error("Error getting stats:", err));
+        .catch((err) => {});
     }
   };
 
@@ -363,7 +325,6 @@ async function attemptIceRestart() {
       });
     }
   } catch (err) {
-    console.error("ICE restart failed:", err);
     updateConnectionStatus("Restart failed");
   }
 }
@@ -373,38 +334,28 @@ async function processBufferedCandidates() {
     for (const candidate of iceCandidateBuffer) {
       try {
         await peerConnection.addIceCandidate(candidate);
-      } catch (e) {
-        console.error("Error adding buffered ICE candidate:", e);
-      }
+      } catch (e) {}
     }
     iceCandidateBuffer = [];
   }
 }
 
-// Call management
 async function startVideoCall() {
   try {
-    console.log("[Debug] Starting video call...");
     isCaller = true;
     restartAttempts = 0;
 
-    console.log("[Debug] Ensuring fresh credentials");
     await ensureFreshCredentials();
-
-    console.log("[Debug] Setting up media stream");
     await setupMediaStream();
 
-    console.log("[Debug] Creating peer connection");
     peerConnection = createPeerConnection();
     if (!peerConnection) throw new Error("Failed to create peer connection");
     setupPeerConnectionListeners();
 
-    console.log("[Debug] Creating offer");
     updateConnectionStatus("Creating offer...");
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    console.log("[Debug] Creating Firestore room");
     roomRef = await db.collection("rooms").add({
       offer: {
         type: offer.type,
@@ -414,25 +365,19 @@ async function startVideoCall() {
     });
     roomId = roomRef.id;
 
-    console.log("[Debug] Room created with ID:", roomId);
     currentRoomDisplay.innerText = `${roomId}`;
     hangUpBtn.disabled = false;
 
-    // Get the parent origin dynamically
     const parentOrigin =
-      window.location.ancestorOrigins?.[0] || "http://localhost:3000"; //change to your dashboard URL if needed
+      window.location.ancestorOrigins?.[0] || "http://localhost:3000";
 
-    // Notify parent window (dashboard) that a room was created
     const message = {
       type: "ROOM_CREATED",
       roomId: roomId,
       timestamp: Date.now(),
     };
 
-    // Send to parent with proper origin
-    console.log(`Sending to ${parentOrigin}`);
     window.parent.postMessage(message, parentOrigin);
-    console.log("Sent roomId to parent. Origin:", parentOrigin);
 
     callerCandidatesCollection = roomRef.collection("callerCandidates");
     calleeCandidatesCollection = roomRef.collection("calleeCandidates");
@@ -459,27 +404,19 @@ async function startVideoCall() {
       });
     });
   } catch (error) {
-    console.error("Error starting video call:", {
-      message: error.message,
-      stack: error.stack,
-      error: error,
-    });
     updateConnectionStatus("Failed to start call");
   }
 }
 
 async function joinRoom(roomIdInput) {
   try {
-    // Reset state
     isCaller = false;
     restartAttempts = 0;
     remoteDescriptionSet = false;
     iceCandidateBuffer = [];
     
-    // Ensure we have fresh credentials
     await ensureFreshCredentials();
 
-    // Get room reference and check existence
     roomRef = db.collection("rooms").doc(roomIdInput);
     const roomSnapshot = await roomRef.get();
 
@@ -488,18 +425,14 @@ async function joinRoom(roomIdInput) {
       return;
     }
 
-    // Update UI with room ID
     currentRoomDisplay.innerText = `${roomIdInput}`;
     roomId = roomIdInput;
 
-    // Set up collections
     callerCandidatesCollection = roomRef.collection("callerCandidates");
     calleeCandidatesCollection = roomRef.collection("calleeCandidates");
 
-    // Set up media and peer connection
     await setupMediaStream();
     
-    // Clean up any existing connection
     if (peerConnection) {
       peerConnection.close();
     }
@@ -507,35 +440,18 @@ async function joinRoom(roomIdInput) {
     peerConnection = createPeerConnection();
     setupPeerConnectionListeners();
 
-    // Get the offer from Firestore
     const offer = roomSnapshot.data().offer;
     if (!offer) {
       throw new Error("No offer found in room");
     }
 
-    // Set remote description first
     updateConnectionStatus("Setting remote description...");
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-      .catch(e => {
-        console.error("setRemoteDescription failed:", e);
-        throw e;
-      });
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
-    // Create and set local description
     updateConnectionStatus("Creating answer...");
-    const answer = await peerConnection.createAnswer()
-      .catch(e => {
-        console.error("createAnswer failed:", e);
-        throw e;
-      });
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
 
-    await peerConnection.setLocalDescription(answer)
-      .catch(e => {
-        console.error("setLocalDescription failed:", e);
-        throw e;
-      });
-
-    // Save answer to Firestore
     await roomRef.update({
       answer: {
         type: answer.type,
@@ -547,7 +463,6 @@ async function joinRoom(roomIdInput) {
     remoteDescriptionSet = true;
     startConnectionTimer();
 
-    // Set up candidate listener
     callerCandidatesCollection.onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
@@ -559,14 +474,8 @@ async function joinRoom(roomIdInput) {
 
     hangUpBtn.disabled = false;
   } catch (error) {
-    console.error("Error joining room:", {
-      error: error,
-      message: error.message,
-      stack: error.stack
-    });
     updateConnectionStatus("Failed to join room");
     
-    // Clean up on failure
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
@@ -574,7 +483,6 @@ async function joinRoom(roomIdInput) {
   }
 }
 
-// Helper functions
 async function setupMediaStream() {
   if (!localStream) {
     localStream = await navigator.mediaDevices.getUserMedia({
@@ -589,7 +497,7 @@ function handleIncomingIceCandidate(candidate) {
   if (remoteDescriptionSet && peerConnection.signalingState === "stable") {
     peerConnection
       .addIceCandidate(candidate)
-      .catch((e) => console.error("Error adding ICE candidate:", e));
+      .catch((e) => {});
   } else {
     iceCandidateBuffer.push(candidate);
   }
@@ -611,7 +519,6 @@ function clearConnectionTimer() {
   }
 }
 
-// UI Controls
 function toggleCamera() {
   const videoTracks = localStream?.getVideoTracks();
   if (videoTracks?.length) {
@@ -657,5 +564,4 @@ async function hangUp() {
   updateConnectionStatus("Call ended", false);
 }
 
-// Initialize the application
 document.addEventListener("DOMContentLoaded", initializeVideoCall);
